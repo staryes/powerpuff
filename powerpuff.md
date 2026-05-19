@@ -3,8 +3,8 @@
 Read this file and execute every step in order to set up the Powerpuff agent workflow in this project. After setup is complete, this file may be deleted or kept as a reference.
 
 ---
-
-## Step 1 — Check OpenSpec CLI
+    
+## Step 1 - Check OpenSpec CLI
 
 Run:
 
@@ -28,7 +28,7 @@ Do **not** run `openspec init` automatically.
 
 ---
 
-## Step 2 — Create directory structure
+## Step 2 - Create directory structure
 
 Create the following directories:
 
@@ -43,12 +43,12 @@ powerpuff/archive/
 
 ---
 
-## Step 3 — Write role files
+## Step 3 - Write role files
 
 ### `powerpuff/blossom/warm-up.md`
 
 ```markdown
-# Blossom — Planner
+# Blossom - Planner
 
 You are the Planner in this project's Powerpuff agent workflow.
 
@@ -58,11 +58,11 @@ You create and maintain the task scope. You are the bridge between what needs to
 
 ## Read First
 
-1. `powerpuff/blossom/handoff.md` — your previous session context
-2. `openspec/changes/` — active OpenSpec changes
-3. `openspec/specs/` — system specifications
-4. `powerpuff/task/scope.md` — current task scope
-5. `powerpuff/human-todo.md` — pending human decisions
+1. `powerpuff/blossom/handoff.md` - your previous session context
+2. `openspec/changes/` - active OpenSpec changes
+3. `openspec/specs/` - system specifications
+4. `powerpuff/task/scope.md` - current task scope
+5. `powerpuff/human-todo.md` - pending human decisions
 
 ## You May
 
@@ -73,7 +73,7 @@ You create and maintain the task scope. You are the bridge between what needs to
 
 ## You Must Not
 
-- Write to `openspec/specs/` directly — specs are updated through OpenSpec changes
+- Write to `openspec/specs/` directly - specs are updated through OpenSpec changes
 - Change `PENDING` to `APPROVE` in `powerpuff/human-todo.md`
 - Perform implementation work
 - Modify project files outside `powerpuff/` and `openspec/`
@@ -96,7 +96,7 @@ Update `powerpuff/blossom/handoff.md` with:
 # Blossom Handoff
 
 **Role:** Planner
-**Last Updated:** —
+**Last Updated:** -
 
 ## Current Task
 
@@ -120,7 +120,7 @@ Update `powerpuff/blossom/handoff.md` with:
 ### `powerpuff/bubbles/warm-up.md`
 
 ```markdown
-# Bubbles — Executor
+# Bubbles - Executor
 
 You are the Executor in this project's Powerpuff agent workflow.
 
@@ -130,11 +130,11 @@ You implement the task. You work within the boundaries defined in `scope.md` and
 
 ## Read First
 
-1. `powerpuff/bubbles/handoff.md` — your previous session context
-2. `powerpuff/task/scope.md` — what you are allowed to do
-3. `openspec/changes/<active-change>/tasks.md` — implementation checklist
-4. `openspec/changes/<active-change>/design.md` — technical approach
-5. `powerpuff/human-todo.md` — check for approved or pending items
+1. `powerpuff/bubbles/handoff.md` - your previous session context
+2. `powerpuff/task/scope.md` - what you are allowed to do
+3. `openspec/changes/<active-change>/tasks.md` - implementation checklist
+4. `openspec/changes/<active-change>/design.md` - technical approach
+5. `powerpuff/human-todo.md` - check for approved or pending items
 
 ## You May
 
@@ -184,7 +184,7 @@ Update `powerpuff/bubbles/handoff.md` with:
 # Bubbles Handoff
 
 **Role:** Executor
-**Last Updated:** —
+**Last Updated:** -
 
 ## Current Task
 
@@ -212,23 +212,23 @@ Update `powerpuff/bubbles/handoff.md` with:
 ### `powerpuff/buttercup/warm-up.md`
 
 ````markdown
-# Buttercup — Reviewer
+# Buttercup - Reviewer
 
 You are the Reviewer in this project's Powerpuff agent workflow.
 
 ## Your Role
 
-You verify that execution matched the spec, stayed within scope, and followed the approval rules. You are not a fixer — flag issues, do not silently correct them.
+You verify that execution matched the spec, stayed within scope, and followed the approval rules. You are not a fixer - flag issues, do not silently correct them.
 
 ## Read First
 
-1. `powerpuff/buttercup/handoff.md` — your previous session context
-2. `powerpuff/task/scope.md` — what was allowed
-3. `powerpuff/bubbles/handoff.md` — what Bubbles did
-4. `openspec/changes/<active-change>/` — proposal, design, tasks, specs
-5. `openspec/specs/` — system spec (check for regressions)
-6. `powerpuff/human-todo.md` — verify approvals are valid
-7. Git log — verify approval commit authorship
+1. `powerpuff/buttercup/handoff.md` - your previous session context
+2. `powerpuff/task/scope.md` - what was allowed
+3. `powerpuff/bubbles/handoff.md` - what Bubbles did
+4. `openspec/changes/<active-change>/` - proposal, design, tasks, specs
+5. `openspec/specs/` - system spec (check for regressions)
+6. `powerpuff/human-todo.md` - verify approvals are valid
+7. Git log - verify approval commit authorship
 
 ## You May
 
@@ -240,7 +240,7 @@ You verify that execution matched the spec, stayed within scope, and followed th
 
 ## You Must Not
 
-- Silently fix implementation issues — flag them, stop, and request changes
+- Silently fix implementation issues - flag them, stop, and request changes
 - Accept uncommitted human approvals
 - Accept approval commits with AI co-author metadata
 - Accept approval commits that also modify implementation files
@@ -254,7 +254,7 @@ You verify that execution matched the spec, stayed within scope, and followed th
 - [ ] Approval commits have no AI co-author metadata
 - [ ] Approval commits only modified `powerpuff/human-todo.md`
 - [ ] Implementation matches `tasks.md` checklist
-- [ ] Output matches `openspec/specs/` — no regressions
+- [ ] Output matches `openspec/specs/` - no regressions
 - [ ] No unrelated changes introduced
 
 ## Review Conclusion
@@ -263,8 +263,8 @@ End every review with one of:
 
 ```
 APPROVED
-CHANGES_REQUESTED — <what needs to change>
-BLOCKED — <reason, and add item to human-todo.md>
+CHANGES_REQUESTED - <what needs to change>
+BLOCKED - <reason, and add item to human-todo.md>
 ```
 
 ## End of Session
@@ -284,7 +284,7 @@ Update `powerpuff/buttercup/handoff.md` with:
 # Buttercup Handoff
 
 **Role:** Reviewer
-**Last Updated:** —
+**Last Updated:** -
 
 ## Current Task
 
@@ -305,7 +305,7 @@ Update `powerpuff/buttercup/handoff.md` with:
 
 ---
 
-## Step 4 — Write task and utility files
+## Step 4 - Write task and utility files
 
 ### `powerpuff/task/scope.md`
 
@@ -401,7 +401,7 @@ Run these git commands in a regular terminal, not inside a Claude Code session.
 
 <!-- Agents add new TODOs here. Example:
 
-### TODO-001 — Approve dependency install
+### TODO-001 - Approve dependency install
 
 - Type: operation-approval
 - Risk: medium
@@ -443,11 +443,15 @@ Create an empty file at `powerpuff/archive/.gitkeep`.
 
 ---
 
-## Step 5 — Create `.claude/commands/` entries
+## Step 5 - Create Claude Code and OpenCode command entries
 
-Create the directory `.claude/commands/` in the project root if it does not exist.
+Create the directory for Claude Code in the project root if it does not exist.
 
-Then create the following files:
+```bash
+mkdir -p .claude/commands
+```
+
+Then create the following files for Claude Code:
 
 ### `.claude/commands/blossom.md`
 
@@ -458,7 +462,10 @@ Read `powerpuff/blossom/warm-up.md` and follow its instructions.
 
 ### `.claude/commands/ppg-plan.md`
 
-Same content as `blossom.md`.
+```markdown
+You are the Planner (Blossom) in this project's Powerpuff agent workflow.
+Read `powerpuff/blossom/warm-up.md` and follow its instructions.
+```
 
 ### `.claude/commands/bubbles.md`
 
@@ -469,7 +476,10 @@ Read `powerpuff/bubbles/warm-up.md` and follow its instructions.
 
 ### `.claude/commands/ppg-exec.md`
 
-Same content as `bubbles.md`.
+```markdown
+You are the Executor (Bubbles) in this project's Powerpuff agent workflow.
+Read `powerpuff/bubbles/warm-up.md` and follow its instructions.
+```
 
 ### `.claude/commands/buttercup.md`
 
@@ -480,12 +490,15 @@ Read `powerpuff/buttercup/warm-up.md` and follow its instructions.
 
 ### `.claude/commands/ppg-review.md`
 
-Same content as `buttercup.md`.
+```markdown
+You are the Reviewer (Buttercup) in this project's Powerpuff agent workflow.
+Read `powerpuff/buttercup/warm-up.md` and follow its instructions.
+```
 
 ### `.claude/commands/ppg.md`
 
 ```markdown
-Powerpuff Girls agent workflow — role reference:
+Powerpuff Girls agent workflow - role reference:
 
 | Command | Alias | Role | Responsibility |
 |---|---|---|---|
@@ -496,9 +509,50 @@ Powerpuff Girls agent workflow — role reference:
 Run the command for the role you need to start a session.
 ```
 
+### For OpenCode
+
+Then create matching OpenCode commands as symbolic links to the Claude Code command files.
+
+Use a guarded symlink setup so existing real files are not overwritten:
+
+```bash
+mkdir -p .opencode/commands
+
+for command in \
+  blossom.md \
+  ppg-plan.md \
+  bubbles.md \
+  ppg-exec.md \
+  buttercup.md \
+  ppg-review.md \
+  ppg.md
+do
+  target=".opencode/commands/$command"
+  source="../../.claude/commands/$command"
+
+  if [ ! -e ".claude/commands/$command" ]; then
+    echo "SKIP: .claude/commands/$command does not exist"
+    continue
+  fi
+
+  if [ -L "$target" ]; then
+    rm "$target"
+    ln -s "$source" "$target"
+  elif [ -e "$target" ]; then
+    echo "SKIP: $target already exists and is not a symlink"
+  else
+    ln -s "$source" "$target"
+  fi
+done
+```
+
+The OpenCode links point back to `.claude/commands/` so Claude Code and OpenCode share the same command definitions.
+
+If a command file already exists in `.opencode/commands/` and is not a symlink, do not overwrite it automatically. Report it as an issue in Step 6.
+
 ---
 
-## Step 6 — Report
+## Step 6 - Report
 
 After completing all steps, report:
 
@@ -506,4 +560,5 @@ After completing all steps, report:
 - Whether `openspec/` exists in the project root
 - List of directories and files created under `powerpuff/`
 - List of `.claude/commands/` files created
+- List of `.opencode/commands/` symlinks created or skipped
 - Any issues encountered
