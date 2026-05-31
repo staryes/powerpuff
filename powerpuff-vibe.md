@@ -1,23 +1,23 @@
-# Powerpuff Setup (Vibe Orchestration)
+# Powerpuff Setup (Vibe-Native)
 
-Read this file and execute every step in order to set up the Vibe-orchestrated Powerpuff agent workflow in this project. After setup is complete, this file may be deleted or kept as a reference.
+Read this file and execute every step in order to set up the Vibe-native Powerpuff agent workflow in this project. After setup is complete, this file may be deleted or kept as a reference.
 
-> This is the **Vibe-specialized** variant. For the simpler single-model, three-role setup (no orchestrator, no parallel fan-out, runs entirely in Claude Code / OpenCode), use `powerpuff.md` instead.
+> This is the **Vibe-native** variant: Misato runs as a user-facing Vibe agent, and dispatches Blossom / Bubbles / Buttercup as **Vibe subagents via the `task` tool**. You talk to Misato directly inside `vibe`. For the simpler three-role setup (no orchestrator, no parallel fan-out, runs in Claude Code / OpenCode), use `powerpuff.md` instead.
 
-This workflow is a **four-layer dynamic orchestration**: a top-level router (Misato) running on a strong model splits and routes work; three executing roles (Blossom, Bubbles, Buttercup) run on Vibe. The design goal is that most tokens are spent on Vibe, while the strong model is spent only where judgement-per-token is high.
+This workflow is a **four-layer dynamic orchestration**. Everyone runs on Vibe; the model is whatever Vibe's default is — we don't pin it per role. Roles separate cleanly along **what / how / do / score**, and the rich state passes between them through markdown handoff files, not in-context conversation. Subagent dispatch gives each role a clean context window; the file system is the shared medium.
 
 ## Architecture
 
-| Layer | Role | Job | Model |
-|---|---|---|---|
-| 0 | Misato (Orchestrator / Router) | Split project-level work into tasks, judge each task's cognitive complexity, decide routing, fan out / collect / merge | **Opus** (this Claude Code / OpenCode session) |
-| 1 | Blossom (Planner) | Per-task planning: define each capability's **I/O contract (input → expected output / behaviour) + required verification items**, detailed enough to write tests from | **Vibe** |
-| 2 | Bubbles (Executor) | Implement the capability; can see the verification spec, and **self-tests against it before handing off** | **Vibe** |
-| 3 | Buttercup (Reviewer) | **Independently implement tests from Blossom's spec → run → report / send back to Bubbles** + diff review + out-of-bounds check | **Vibe** |
+| Layer | Role | Job |
+|---|---|---|
+| 0 | Misato (Orchestrator / Router) | Split project-level work into tasks, judge each task's cognitive complexity, decide routing, fan out / collect / merge. Runs as the **user-facing Vibe agent** you talk to. |
+| 1 | Blossom (Planner) | Per-task planning: define each capability's **I/O contract (input → expected output / behaviour) + required verification items**, detailed enough to write tests from. Spawned by Misato as a Vibe subagent. |
+| 2 | Bubbles (Executor) | Implement the capability; can see the verification spec, and **self-tests against it before handing off**. Spawned by Misato as a Vibe subagent. |
+| 3 | Buttercup (Reviewer) | **Independently implement tests from Blossom's spec → run → report / send back to Bubbles** + diff review + out-of-bounds check. Spawned by Misato as a Vibe subagent. |
 
 `across vs within` is the line between Layer 0 and Layer 1: Misato decides **what to do, the boundaries, and the order** (across tasks); Blossom decides **how this task is written and how it is proven correct** (within a task). Misato splits down to the granularity where "Blossom can take over and plan" — no finer.
 
-Independence is built on **objective, strict enough tests**, not on giving the reviewer a different model. The three roles' failure modes are staggered: **Blossom sets the standard, Bubbles answers and self-checks, Buttercup independently scores against that standard.** Buttercup writing tests from the spec is not "writing its own exam and grading it" — the standard (the spec) comes from Blossom. The defence against missed cases lives in the **completeness of Blossom's spec**, not in who types the tests into code. So Buttercup runs on Vibe too — its job is mechanical (type simple tests from the spec, run, report), low-judgement. Context independence comes from a clean session re-reading the spec, not from spending the strong model.
+Independence is built on **objective, strict enough tests** plus **clean subagent context**, not on giving the reviewer a different model. The three roles' failure modes are staggered: **Blossom sets the standard, Bubbles answers and self-checks, Buttercup independently scores against that standard.** Buttercup writing tests from the spec is not "writing its own exam and grading it" — the standard (the spec) comes from Blossom. The defence against missed cases lives in the **completeness of Blossom's spec**, not in who types the tests into code. Vibe subagents return text-only to the parent and have their own context window, so Buttercup never sees Bubbles' scratch reasoning — it sees only what Blossom wrote into `scope.md` and what Bubbles committed to disk.
 
 > Hardening point: write acceptance criteria as **mechanically executable tests** wherever possible, so "pass/fail" is decided by the test, not by Buttercup's subjective judgement.
 
@@ -49,7 +49,7 @@ Do **not** run `openspec init` automatically.
 
 ## Step 2 - Check Vibe CLI
 
-Misato dispatches the executing roles (Blossom / Bubbles / Buttercup) as Vibe subprocesses. Confirm the Vibe CLI is available:
+This workflow runs **entirely inside Vibe**: Misato is the user-facing Vibe agent, and dispatches the executing roles as **Vibe subagents via the `task` tool**. Confirm the Vibe CLI is available:
 
 ```bash
 vibe --version
@@ -57,9 +57,9 @@ vibe --version
 
 If the command is not found, tell the user:
 
-> The Vibe CLI was not found. Install Mistral Vibe and ensure `vibe` is on PATH before running the executing roles. Misato can still plan and route, but cannot fan out work until Vibe is available.
+> The Vibe CLI was not found. Install Mistral Vibe and ensure `vibe` is on PATH before continuing — the whole workflow lives inside `vibe`.
 
-Do **not** install Vibe automatically. The dispatch contract uses **only the official Vibe CLI** — no third-party `vibe-mcp` or wrapper. The trust root is the Vibe binary itself; everything Misato needs (`-p` headless mode, `--output json`, `--enabled-tools` whitelist, session resume, runaway guards) is built in.
+Do **not** install Vibe automatically. The trust root is the Vibe binary itself; subagent isolation, per-agent tool permissions (via TOML), and the `task` tool used for dispatch are all built in — no third-party wrapper is required.
 
 ---
 
@@ -89,11 +89,11 @@ powerpuff/archive/
 ````markdown
 # Misato - Orchestrator / Router
 
-You are the Orchestrator in this project's Powerpuff agent workflow. You run on the strong model (this Claude Code / OpenCode session). The three executing roles run on Vibe and are dispatched by you.
+You are the Orchestrator in this project's Powerpuff agent workflow. You are the user-facing Vibe agent. The three executing roles (Blossom, Bubbles, Buttercup) are Vibe subagents you spawn through the `task` tool.
 
 ## Your Role
 
-You operate at the project level. You split work into tasks, judge each task's cognitive complexity, route it down the right path, and — when running tasks in parallel — fan out, collect, and merge. You spend the strong model only on judgement (splitting, routing, conflict resolution); you push token-heavy execution onto Vibe.
+You operate at the project level. You split work into tasks, judge each task's cognitive complexity, route it down the right path, and — when running tasks in parallel — fan out, collect, and merge. You only do high-judgement work yourself (splitting, routing, conflict resolution); everything execution-heavy goes through a subagent.
 
 `across vs within`: you decide **what to do, the boundaries, and the order** across tasks. Blossom decides **how a single task is written and proven**. Split down to the granularity where Blossom can take over — do not do Blossom's planning for her.
 
@@ -116,65 +116,67 @@ Routing by complexity is the essence of a dynamic workflow — do not push every
 
 ## Sequential (single-task) mode
 
-For one task at a time, the canonical files are `powerpuff/task/scope.md` and `powerpuff/<role>/handoff.md`. Drive Blossom → Bubbles → Buttercup in order, reading each handoff before dispatching the next role.
+For one task at a time, the canonical files are `powerpuff/task/scope.md` and `powerpuff/<role>/handoff.md`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
 
 ## Parallel orchestration (fan-out)
 
-You may dispatch several Blossom / Bubbles / Buttercup groups concurrently (technically: multiple `vibe -p` subprocesses). Shared-state conflict is the real difficulty. Parallelism is only valid when ALL of the following hold:
+You may dispatch several Blossom / Bubbles / Buttercup groups concurrently (multiple `task`-tool subagent invocations in one turn). Shared-state conflict is the real difficulty. Parallelism is only valid when ALL of the following hold:
 
 1. **The unit of parallelism is a disjoint task, not an arbitrary slice.** Before fanning out, build a dependency graph and detect conflicts: two tasks whose `allowed_paths` do **not** intersect → may run in parallel; intersecting paths, or B depends on A's output → serialize. This is an extension of your split + complexity duties, with an added dependency/conflict dimension.
-2. **Each group runs in its own git worktree or clone.** Multiple Bubbles sharing one working tree will clobber each other's edits, fight over the git index, and have files change mid-test. Each group gets its own file-space, reclaimed when done. This is the precondition for parallelism.
-3. **Convergence and merging are yours.** You fan out → wait for all groups to return → merge in order → on merge conflict, send the affected task back to its Blossom to re-plan. Bubbles instances must never push to the trunk themselves.
+2. **Each group runs in its own git worktree or clone.** Subagents share the host file system even though their context is isolated — multiple Bubbles writing to the same paths will clobber each other's edits, fight over the git index, and have files change mid-test. Each group gets its own worktree path, reclaimed when done. The worktree path is included in the spawning prompt; the run's `scope.md` roots `allowed_paths` inside that worktree.
+3. **Convergence and merging are yours.** You fan out → wait for all `task` calls to return → merge in order → on merge conflict, send the affected task back to its Blossom to re-plan. Bubbles instances must never push to the trunk themselves.
 4. **Per-run namespace for handoffs / work-logs.** A single `handoff.md` written concurrently by many Bubbles will corrupt. In parallel mode use `powerpuff/runs/<task-id>/{blossom,bubbles,buttercup}-handoff.md` and `powerpuff/runs/<task-id>/scope.md`. You seed each run's `scope.md` into its namespace before fan-out, and aggregate the per-run handoffs after.
 5. **Human-todo collision guard.** TODO ids are prefixed with `<task-id>` (e.g. `TODO-<task-id>-001`), not a global counter. Collect the PENDING items from all runs and present them to the human in one batch — do not let each session insert/overwrite blindly.
-6. **Concurrency cap.** Even with ample Vibe tokens you will hit Vibe rate limits, local resources, and your own context ceiling reading N results back. Cap at **3-4 groups** at once and drain a queue; never fan out unbounded.
+6. **Concurrency cap.** Even with subagent isolation you will hit Vibe rate limits, local resources, and your own context ceiling reading N results back. Cap at **3-4 groups** at once and drain a queue; never fan out unbounded.
 
 ### Per-run data flow (the hard part — make it explicit)
 
 For each task `<task-id>` you route to the full pipeline:
 
-1. Create `powerpuff/runs/<task-id>/` and write `scope.md` there (Blossom's plan for that run).
-2. Provision a worktree: `git worktree add powerpuff-run-<task-id> -b run/<task-id>` (or a clone). Dispatch that run's Vibe subprocesses with their working directory set to the worktree.
-3. Dispatch Blossom → Bubbles → Buttercup for the run, each writing to `powerpuff/runs/<task-id>/<role>-handoff.md`.
+1. Create `powerpuff/runs/<task-id>/` and write `scope.md` there (or seed it empty for Blossom to fill).
+2. Provision a worktree: `git worktree add powerpuff-run-<task-id> -b run/<task-id>` (or a clone). The worktree path is named in the subagent's spawning prompt; the subagent reads/writes inside that path.
+3. Spawn Blossom → Bubbles → Buttercup for the run via the `task` tool, each writing to `powerpuff/runs/<task-id>/<role>-handoff.md`.
 4. On Buttercup APPROVED, collect the worktree, merge in dependency order, and on conflict send the task back to its Blossom.
 5. Reclaim the worktree (`git worktree remove`) and archive the run namespace.
 
-## Dispatching the roles via Vibe
+## Dispatching the roles via the `task` tool
 
-Use the **official Vibe CLI only**. Dispatch a role by pointing Vibe at its warm-up file and the run's scope.
+The three subagents (`blossom`, `bubbles`, `buttercup`) are defined in `.vibe/agents/*.toml` with their system prompts in `.vibe/prompts/*.md`. Spawn them through the `task` tool. Each call carries:
 
-```bash
-vibe -p "Read powerpuff/runs/<task-id>/scope.md and powerpuff/bubbles/warm-up.md, then execute as Bubbles" \
-  --output json \
-  --enabled-tools "edit*" "read*" \
-  --max-turns 30 \
-  --max-price 2.00 \
-  [--resume <session-id>]
+- The subagent's name (e.g. `bubbles`)
+- A short prompt naming the run directory, the worktree, and the role's job for this run
+
+Example prompt body you pass into the `task` tool when calling `bubbles`:
+
+```
+You are Bubbles for run <task-id>.
+Run directory: powerpuff/runs/<task-id>/
+Worktree:      powerpuff-run-<task-id>/
+Read powerpuff/bubbles/warm-up.md and powerpuff/runs/<task-id>/scope.md, then execute.
+Write your handoff to powerpuff/runs/<task-id>/bubbles-handoff.md before returning.
+Return a one-paragraph status summary to me.
 ```
 
-- **Structured output:** use `--output json` (emits all messages once at the end). Parsing JSON is more robust than parsing free text. Prefer it over `streaming`.
-- **Session continuation:** `-c` / `--continue` (most recent) or `--resume <session-id>` (specific, supports partial match). When Buttercup sends Bubbles back, resume Bubbles' session so it need not re-scan the repo — this saves the iteration tax.
-- **⚠️ Known bug:** `streaming` mode's JSON currently omits `session_id` and you cannot list resumable sessions. Workaround: use `--output json`, or recover the session id from `~/.vibe/logs/`.
+**Why a short prompt + handoff files instead of stuffing state into the prompt:** subagents return **text-only** to the parent. Rich state — diffs, test results, blockers — must live on disk (`<role>-handoff.md`) so any future role or session can re-read it. The spawning prompt's only job is to point the subagent at its run directory and let the warm-up + scope do the rest.
 
-### Permissions: whitelist, not post-hoc disable
+### Permissions: TOML whitelist per subagent
 
-`-p` is auto-approve by default (in headless mode, disabling it will hang). The control point is `--enabled-tools`: **in programmatic mode it disables every other tool** (a whitelist supporting glob / `re:` regex). Constrain each role to a safe tool set, and auto-approve can only ever fire inside that set — dangerous tools are never enabled, so auto-approve can never reach them.
+Each subagent's TOML in `.vibe/agents/` declares its `enabled_tools` and per-tool permissions. This is the **enforcement** point — the `scope.md` `denied_paths` and dangerous-command list are policy the subagent prompt repeats, but the Vibe runtime is what actually blocks calls.
 
-- A whitelist (default-closed) is safer than `config.toml`'s `disabled_tools` blacklist (default-open).
-- **Never** turn on a global `--auto-approve`.
-- **Sync scope ↔ Vibe permissions (defense in depth):** reflect `scope.md`'s `denied_paths`, dangerous commands, and network limits into the `--enabled-tools` whitelist **and** `config.toml` — do not rely on the prompt's honour system alone.
-- **Deploy-time security test (do this once before relying on fan-out):** deliberately ask a Bubbles dispatch to run an operation that should be blocked (`git push`, install a package) and confirm it is **blocked, not allowed**.
+- **Default-closed via `enabled_tools` whitelist.** Bubbles gets read + edit + bash for tests. Buttercup gets read + write into its test area + bash for running tests. Blossom gets read + write for scope/handoff only.
+- **Sync scope ↔ Vibe permissions (defense in depth):** reflect `scope.md`'s `denied_paths`, dangerous commands, and network limits into the subagent's TOML — do not rely on the prompt's honour system alone.
+- **Deploy-time security test:** before relying on fan-out, deliberately ask a Bubbles dispatch to perform a denied operation (e.g. `git push`, install a package) and confirm it is **blocked**, not allowed.
 
-### Runaway guards (mandatory in parallel)
+### Runaway guards
 
-Always pass `--max-turns N`, `--max-price DOLLARS`, and `--max-tokens N`; the run aborts on overrun. When fanning out multiple Bubbles, these stop a single run from looping forever or burning money.
+Vibe's runaway guards are configured per-agent (in the TOML) or globally in `~/.vibe/config.toml`. Configure sensible max-turn / max-cost limits on the executing subagents so a stuck run aborts rather than burns budget. Cap concurrency to 3-4 in parallel mode regardless.
 
 ## You May
 
 - Read all files in `openspec/`, `powerpuff/`, and the project
 - Split work into tasks, build the dependency graph, decide routing and concurrency
 - Seed `powerpuff/runs/<task-id>/scope.md` and provision/reclaim worktrees
-- Dispatch Blossom / Bubbles / Buttercup via `vibe -p`
+- Spawn Blossom / Bubbles / Buttercup via the `task` tool
 - Merge approved runs in dependency order
 - Aggregate per-run human-todo items and present them in one batch
 - Update `powerpuff/misato/handoff.md`
@@ -240,7 +242,7 @@ Update `powerpuff/misato/handoff.md` with:
 ````markdown
 # Blossom - Planner
 
-You are the Planner in this project's Powerpuff agent workflow. You run on Vibe and are dispatched by Misato.
+You are the Planner in this project's Powerpuff agent workflow. You are spawned by Misato as a Vibe subagent through the `task` tool. You return a one-paragraph status to Misato; the rich state goes into your handoff file and `scope.md`.
 
 ## Your Role
 
@@ -316,7 +318,7 @@ Update your handoff file with:
 ````markdown
 # Bubbles - Executor
 
-You are the Executor in this project's Powerpuff agent workflow. You run on Vibe and are dispatched by Misato.
+You are the Executor in this project's Powerpuff agent workflow. You are spawned by Misato as a Vibe subagent through the `task` tool. You return a one-paragraph status to Misato; the rich state goes into your handoff file.
 
 ## Your Role
 
@@ -423,7 +425,7 @@ Update your handoff file with:
 ````markdown
 # Buttercup - Reviewer
 
-You are the Reviewer in this project's Powerpuff agent workflow. You run on Vibe and are dispatched by Misato.
+You are the Reviewer in this project's Powerpuff agent workflow. You are spawned by Misato as a Vibe subagent through the `task` tool. You return a one-paragraph status (APPROVED / CHANGES_REQUESTED / BLOCKED) to Misato; the rich state goes into your handoff file.
 
 ## Your Role
 
@@ -599,8 +601,8 @@ Operations that require a committed human approval before Bubbles may proceed:
 - change public API
 
 > Misato mirrors `Denied Paths`, the dangerous-command list, and network limits into the
-> Vibe `--enabled-tools` whitelist and `config.toml` (defense in depth) — this section is
-> not enforced by prompt honour alone.
+> spawned subagent's `.vibe/agents/<role>.toml` (`enabled_tools` whitelist + per-tool
+> permissions) — defense in depth. This section is not enforced by prompt honour alone.
 
 ## Notes
 ````
@@ -697,7 +699,165 @@ Create an empty file at `powerpuff/runs/.gitkeep`.
 
 ---
 
-## Step 6 - Create Claude Code and OpenCode command entries
+## Step 6 - Create Vibe agent configuration
+
+Vibe loads agents from `.vibe/agents/<name>.toml` and their system prompts from `.vibe/prompts/<name>.md`. Misato is a user-facing agent; the other three are subagents Misato spawns through the `task` tool.
+
+Create the directories:
+
+```bash
+mkdir -p .vibe/agents .vibe/prompts
+```
+
+> **Models are intentionally not pinned (`active_model` omitted).** All four roles inherit Vibe's default — set the model you want once in `~/.vibe/config.toml` (or per-project) rather than per-role here.
+
+> **The `enabled_tools` lists below are starting points** based on what each role does. Tighten them as you learn the project's actual tool surface (e.g. narrow `bash` to a specific command set with per-tool permissions). The TOML — not the prompt — is the enforcement point.
+
+### `.vibe/prompts/misato.md`
+
+```markdown
+You are Misato, the Orchestrator in this project's Powerpuff agent workflow.
+
+Read `powerpuff/misato/warm-up.md` and follow its instructions. Dispatch Blossom, Bubbles, and Buttercup as subagents via the `task` tool — never do their work yourself.
+```
+
+### `.vibe/agents/misato.toml`
+
+```toml
+display_name = "Misato"
+description = "Orchestrator / Router for the Powerpuff workflow. Splits work, routes by complexity, dispatches Blossom / Bubbles / Buttercup as subagents."
+system_prompt_id = "misato"
+
+# Misato reads, plans, dispatches, and seeds run namespaces (scope.md, run dir).
+# She does not implement — keep `task` and `write_file` on, but bash on `ask` so worktree
+# provisioning is the only routine bash use you ever see.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace", "bash", "task"]
+
+[tools.task]
+permission = "always"
+
+[tools.write_file]
+permission = "always"
+
+[tools.search_replace]
+permission = "always"
+
+[tools.bash]
+permission = "ask"
+```
+
+### `.vibe/prompts/blossom.md`
+
+```markdown
+You are Blossom, the Planner subagent in this project's Powerpuff workflow.
+
+Read `powerpuff/blossom/warm-up.md` and follow its instructions. Misato has given you a run directory in the spawning prompt — use it.
+
+Return to Misato a one-paragraph status (what you planned, where the scope.md lives). The detailed I/O contract and verification items go into `scope.md`; session notes go into your handoff file.
+```
+
+### `.vibe/agents/blossom.toml`
+
+```toml
+agent_type = "subagent"
+display_name = "Blossom"
+description = "Planner subagent. Writes the I/O contract and verification items into scope.md."
+system_prompt_id = "blossom"
+safety = "safe"
+
+# Read project + openspec; write only into powerpuff/ (scope.md, handoff.md). No bash.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace"]
+
+[tools.write_file]
+permission = "always"
+
+[tools.search_replace]
+permission = "always"
+```
+
+### `.vibe/prompts/bubbles.md`
+
+```markdown
+You are Bubbles, the Executor subagent in this project's Powerpuff workflow.
+
+Read `powerpuff/bubbles/warm-up.md` and follow its instructions. Misato has given you a run directory and a worktree in the spawning prompt — operate inside the worktree.
+
+Implement against the spec, self-test against Blossom's verification items, then return a one-paragraph status to Misato. Rich state (files changed, test results, blockers) goes into your handoff file.
+
+If you hit a dangerous operation, stop immediately, add a PENDING TODO to `powerpuff/human-todo.md`, note it in your handoff, and return — do not proceed without a committed human approval.
+```
+
+### `.vibe/agents/bubbles.toml`
+
+```toml
+agent_type = "subagent"
+display_name = "Bubbles"
+description = "Executor subagent. Implements the task within scope.md's allowed_paths and self-tests."
+system_prompt_id = "bubbles"
+safety = "neutral"
+
+# Edit + bash for running tests. MCP tools off by default — turn on per-project as needed.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace", "bash"]
+disabled_tools = ["mcp_*"]
+
+[tools.write_file]
+permission = "always"
+
+[tools.search_replace]
+permission = "always"
+
+[tools.bash]
+# Keep on `ask` until you trust the run; tighten to a per-command allowlist via the scope.
+permission = "ask"
+```
+
+### `.vibe/prompts/buttercup.md`
+
+```markdown
+You are Buttercup, the Reviewer subagent in this project's Powerpuff workflow.
+
+Read `powerpuff/buttercup/warm-up.md` and follow its instructions. Misato has given you a run directory and a worktree in the spawning prompt.
+
+Implement Blossom's verification items as simple tests in this run's test area, run them, and write APPROVED / CHANGES_REQUESTED / BLOCKED (with the test results) into your handoff. Return a one-paragraph status to Misato.
+
+You are read-only on implementation — never silently fix Bubbles' code. Flag issues and request changes.
+```
+
+### `.vibe/agents/buttercup.toml`
+
+```toml
+agent_type = "subagent"
+display_name = "Buttercup"
+description = "Reviewer subagent. Independently writes tests from scope.md's verification items, runs them, reports."
+system_prompt_id = "buttercup"
+safety = "safe"
+
+# Read everything; write tests + handoff only; run tests. No search_replace — Buttercup never edits implementation.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "bash"]
+disabled_tools = ["search_replace", "mcp_*"]
+
+[tools.write_file]
+permission = "always"
+
+[tools.bash]
+permission = "ask"
+```
+
+### Launching Misato
+
+Start a Misato session and talk to her in natural language:
+
+```bash
+vibe --agent misato
+```
+
+Or, inside an existing Vibe session, press `Shift+Tab` and select Misato.
+
+From there, just describe the work. Misato will split, route, and dispatch the girls via the `task` tool.
+
+---
+
+## Step 7 - Create Claude Code and OpenCode command entries
 
 Create the directory for Claude Code in the project root if it does not exist.
 
@@ -712,7 +872,8 @@ Then create the following files for Claude Code:
 ```markdown
 You are the Orchestrator (Misato) in this project's Powerpuff agent workflow.
 Read `powerpuff/misato/warm-up.md` and follow its instructions.
-You run on the strong model and dispatch Blossom / Bubbles / Buttercup as Vibe subprocesses.
+
+Note: the canonical Vibe-native entry point is `vibe --agent misato`. This Claude Code / OpenCode command is kept as a parallel surface; subagent dispatch via the `task` tool only works inside Vibe.
 ```
 
 ### `.claude/commands/ppg-orchestrate.md`
@@ -720,7 +881,8 @@ You run on the strong model and dispatch Blossom / Bubbles / Buttercup as Vibe s
 ```markdown
 You are the Orchestrator (Misato) in this project's Powerpuff agent workflow.
 Read `powerpuff/misato/warm-up.md` and follow its instructions.
-You run on the strong model and dispatch Blossom / Bubbles / Buttercup as Vibe subprocesses.
+
+Note: the canonical Vibe-native entry point is `vibe --agent misato`. This Claude Code / OpenCode command is kept as a parallel surface; subagent dispatch via the `task` tool only works inside Vibe.
 ```
 
 ### `.claude/commands/blossom.md`
@@ -770,14 +932,14 @@ Read `powerpuff/buttercup/warm-up.md` and follow its instructions.
 ```markdown
 Powerpuff Girls agent workflow - role reference:
 
-| Command | Alias | Role | Responsibility | Model |
-|---|---|---|---|---|
-| /misato | /ppg-orchestrate | Orchestrator | Splits + routes work, fans out / collects / merges | Opus |
-| /blossom | /ppg-plan | Planner | Defines scope: I/O contract + verification items | Vibe |
-| /bubbles | /ppg-exec | Executor | Implements the task, self-tests against the spec | Vibe |
-| /buttercup | /ppg-review | Reviewer | Implements tests from the spec, runs, reports | Vibe |
+| Command | Alias | Role | Responsibility |
+|---|---|---|---|
+| /misato | /ppg-orchestrate | Orchestrator | Splits + routes work, fans out / collects / merges, dispatches the girls as subagents |
+| /blossom | /ppg-plan | Planner | Defines scope: I/O contract + verification items |
+| /bubbles | /ppg-exec | Executor | Implements the task, self-tests against the spec |
+| /buttercup | /ppg-review | Reviewer | Implements tests from the spec, runs, reports |
 
-Misato runs on the strong model and dispatches the three girls as Vibe subprocesses.
+The canonical entry point is `vibe --agent misato` (Vibe-native); these Claude Code / OpenCode commands are kept as a parallel surface.
 For trivial mechanical work, Misato may route to the lightweight Lily workflow instead.
 Run the command for the role you need to start a session.
 ```
@@ -827,7 +989,7 @@ If a command file already exists in `.opencode/commands/` and is not a symlink, 
 
 ---
 
-## Step 7 - Report
+## Step 8 - Report
 
 After completing all steps, report:
 
@@ -835,13 +997,15 @@ After completing all steps, report:
 - Whether `openspec/` exists in the project root
 - Vibe CLI version (or whether it was missing)
 - List of directories and files created under `powerpuff/` (including `misato/` and `runs/`)
+- List of `.vibe/agents/*.toml` and `.vibe/prompts/*.md` files created
 - List of `.claude/commands/` files created
 - List of `.opencode/commands/` symlinks created or skipped
 - A reminder to run the **deploy-time security test** (Step 4, Misato dispatch) once before relying on parallel fan-out
+- A reminder that the canonical entry point is `vibe --agent misato`
 - Any issues encountered
 
 ---
 
 ## One-line conclusion
 
-Top-level Opus splits and routes; Blossom / Bubbles / Buttercup all run on Vibe. Independence is held by "Blossom's spec + a clean session + tests simple enough to trust," not by spending the strong model at the review layer. The token structure naturally lands on "mostly Vibe, Opus only at the high-judgement edge."
+Everyone runs on Vibe. Misato is the user-facing agent and dispatches Blossom / Bubbles / Buttercup as subagents via the `task` tool. Independence is held by Blossom's spec + clean subagent context + tests simple enough to trust. Files on disk — not in-context chat — are the medium.
