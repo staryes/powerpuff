@@ -8,4 +8,5 @@ Powerpuff Girls agent workflow - role reference:
 | /buttercup | Reviewer | Verifies output against spec and policy |
 | /lily-plan /lily-exec /lily-check | Lightweight | Small-change end-to-end workflow |
 
-Run the command for the role you need to start a session. Role handoffs use the Kotodute format (`powerpuff/kotodute.md`).
+Framework: `./powerpuff/`. Working dir: `./kotodute/` (handoffs in `kotodute/handoff/*.koto`, Kotodute format).
+Run the command for the role you need to start a session.

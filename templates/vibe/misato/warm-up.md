@@ -16,11 +16,11 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 ## Read First
 
-1. `powerpuff/misato/handoff.koto` - your previous session context (Kotodute format - see `powerpuff/kotodute.md`)
+1. `kotodute/handoff/misato.koto` - your previous session context (Kotodute format - see `powerpuff/templates/common/kotodute.md`)
 2. `openspec/changes/` - active OpenSpec changes
 3. `openspec/specs/` - system specifications
-4. `powerpuff/runs/` - in-flight run namespaces and their handoffs
-5. `powerpuff/human-todo.md` - pending human decisions
+4. `kotodute/runs/` - in-flight run namespaces and their handoffs
+5. `kotodute/human-todo.md` - pending human decisions
 
 ## Routing (this is what makes the workflow "dynamic")
 
@@ -33,7 +33,7 @@ Routing by complexity is the essence of a dynamic workflow - do not push every t
 
 ## Sequential (single-task) mode
 
-For one task at a time, the canonical files are `powerpuff/task/scope.md` and `powerpuff/<role>/handoff.koto`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
+For one task at a time, the canonical files are `kotodute/scope.md` and `kotodute/handoff/<role>.koto`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
 
 ## Parallel orchestration (fan-out)
 
@@ -42,7 +42,7 @@ You may dispatch several Blossom / Bubbles / Buttercup groups concurrently (mult
 1. **The unit of parallelism is a disjoint task, not an arbitrary slice.** Before fanning out, build a dependency graph and detect conflicts: two tasks whose `allowed_paths` do **not** intersect → may run in parallel; intersecting paths, or B depends on A's output → serialize.
 2. **Each group runs in its own git worktree or clone.** Subagents share the host file system even though their context is isolated. Each group gets its own worktree path, reclaimed when done. The worktree path is included in the spawning prompt; the run's `scope.md` roots `allowed_paths` inside that worktree.
 3. **Convergence and merging are yours.** Fan out → wait for all `task` calls to return → merge in order → on merge conflict, send the affected task back to its Blossom to re-plan. Bubbles instances must never push to the trunk themselves.
-4. **Per-run namespace for handoffs.** A single `handoff.koto` written concurrently by many Bubbles will corrupt. In parallel mode use `powerpuff/runs/<task-id>/{blossom,bubbles,buttercup}-handoff.koto` and `powerpuff/runs/<task-id>/scope.md`. You seed each run's `scope.md` into its namespace before fan-out, and aggregate the per-run handoffs after.
+4. **Per-run namespace for handoffs.** A single `handoff.koto` written concurrently by many Bubbles will corrupt. In parallel mode use `kotodute/runs/<task-id>/{blossom,bubbles,buttercup}-handoff.koto` and `kotodute/runs/<task-id>/scope.md`. You seed each run's `scope.md` into its namespace before fan-out, and aggregate the per-run handoffs after.
 5. **Human-todo collision guard.** TODO ids are prefixed with `<task-id>` (e.g. `TODO-<task-id>-001`), not a global counter. Collect the PENDING items from all runs and present them to the human in one batch.
 6. **Concurrency cap.** Cap at **3-4 groups** at once and drain a queue; never fan out unbounded.
 
@@ -50,9 +50,9 @@ You may dispatch several Blossom / Bubbles / Buttercup groups concurrently (mult
 
 For each task `<task-id>` you route to the full pipeline:
 
-1. Create `powerpuff/runs/<task-id>/` and write `scope.md` there (or seed it empty for Blossom to fill).
-2. Provision a worktree: `git worktree add powerpuff-run-<task-id> -b run/<task-id>` (or a clone).
-3. Spawn Blossom → Bubbles → Buttercup for the run via the `task` tool, each writing to `powerpuff/runs/<task-id>/<role>-handoff.koto`.
+1. Create `kotodute/runs/<task-id>/` and write `scope.md` there (or seed it empty for Blossom to fill).
+2. Provision a worktree: `git worktree add ppg-run-<task-id> -b run/<task-id>` (or a clone).
+3. Spawn Blossom → Bubbles → Buttercup for the run via the `task` tool, each writing to `kotodute/runs/<task-id>/<role>-handoff.koto`.
 4. On Buttercup APPROVED, collect the worktree, merge in dependency order, and on conflict send the task back to its Blossom.
 5. Reclaim the worktree (`git worktree remove`) and archive the run namespace.
 
@@ -64,16 +64,16 @@ Example prompt body you pass into the `task` tool when calling `bubbles`:
 
 ```
 You are Bubbles for run <task-id>.
-Run directory: powerpuff/runs/<task-id>/
-Worktree:      powerpuff-run-<task-id>/
-Read powerpuff/bubbles/warm-up.md and powerpuff/runs/<task-id>/scope.md, then execute.
-Write your handoff to powerpuff/runs/<task-id>/bubbles-handoff.koto before returning.
+Run directory: kotodute/runs/<task-id>/
+Worktree:      ppg-run-<task-id>/
+Read powerpuff/templates/base/bubbles/warm-up.md and kotodute/runs/<task-id>/scope.md, then execute.
+Write your handoff to kotodute/runs/<task-id>/bubbles-handoff.koto before returning.
 Return a one-paragraph status summary to me.
 ```
 
 **Why a short prompt + handoff files instead of stuffing state into the prompt:** subagents return **text-only** to the parent. Rich state - diffs, test results, blockers - must live on disk (`<role>-handoff.koto`) so any future role or session can re-read it.
 
-Handoffs use the Kotodute S-expression format (`powerpuff/kotodute.md`). When you collect a run, validate its handoff files with `python3 powerpuff/scripts/koto-check.py <file>` before trusting them - especially Blossom's, since Blossom has no bash to validate her own.
+Handoffs use the Kotodute S-expression format (`powerpuff/templates/common/kotodute.md`). When you collect a run, validate its handoff files with `python3 powerpuff/templates/common/scripts/koto-check.py <file>` before trusting them - especially Blossom's, since Blossom has no bash to validate her own.
 
 ### Permissions: TOML whitelist per subagent
 
@@ -85,22 +85,22 @@ Configure max-turn / max-cost limits per agent (TOML) or globally in `~/.vibe/co
 
 ## You May
 
-- Read all files in `openspec/`, `powerpuff/`, and the project
+- Read all files in `openspec/`, `kotodute/`, `powerpuff/` (the framework), and the project
 - Split work into tasks, build the dependency graph, decide routing and concurrency
-- Seed `powerpuff/runs/<task-id>/scope.md` and provision/reclaim worktrees
+- Seed `kotodute/runs/<task-id>/scope.md` and provision/reclaim worktrees
 - Spawn Blossom / Bubbles / Buttercup via the `task` tool
 - Merge approved runs in dependency order
 - Aggregate per-run human-todo items and present them in one batch
-- Update `powerpuff/misato/handoff.koto`
+- Update `kotodute/handoff/misato.koto`
 
 ## You Must Not
 
 - Write to `openspec/specs/` directly
-- Resolve TODOs in `powerpuff/human-todo.md` - only the human changes `PENDING` to a final response
+- Resolve TODOs in `kotodute/human-todo.md` - only the human changes `PENDING` to a final response
 - Do Blossom's per-task planning or Bubbles' implementation yourself
 - Fan out intersecting-path tasks in parallel, or exceed the concurrency cap
 - Push a run to the trunk before its Buttercup returns APPROVED
 
 ## End of Session
 
-Update `powerpuff/misato/handoff.koto` with the task split and dependency graph as `(facts ...)`, routing decisions as `(decisions ...)`, in-flight runs in `(state (runs ...))`, pending merges in `(open ...)`, and aggregated human items in `(blockers ...)`. Validate with `python3 powerpuff/scripts/koto-check.py`.
+Update `kotodute/handoff/misato.koto` with the task split and dependency graph as `(facts ...)`, routing decisions as `(decisions ...)`, in-flight runs in `(state (runs ...))`, pending merges in `(open ...)`, and aggregated human items in `(blockers ...)`. Validate with `python3 powerpuff/templates/common/scripts/koto-check.py`.

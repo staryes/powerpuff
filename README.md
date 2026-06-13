@@ -1,21 +1,30 @@
 # Powerpuff
 
-Multi-agent coding workflow,attach 到任何開發 repo。角色分工 + 檔案為媒介的狀態傳遞(Kotodute)+ 三檔位權限模型,支援 Claude Code / Vibe / OpenCode / pi。
+Multi-agent coding workflow,vendor 到任何開發 repo。角色分工 + 檔案為媒介的狀態傳遞(Kotodute)+ 三檔位權限模型,支援 Claude Code / Vibe / OpenCode / pi。
 
 ## Quick Start
 
 ```bash
-git clone <this-repo> ~/gitLocal/powerpuff
 cd /path/to/your/project
-~/gitLocal/powerpuff/ppg attach        # 互動式 TUI:選 harness、選 girls、選模式
+git clone <this-repo> powerpuff      # 框架 vendor 進專案(名稱必須是 powerpuff)
+./powerpuff/ppg attach               # 互動式 TUI:選 harness、選 girls、選模式
+```
+
+attach 後的專案佈局:
+
+```
+your-project/
+├── powerpuff/      # 框架 clone(更新:git -C powerpuff pull,不碰工作區)
+├── kotodute/       # 工作區:scope.md、human-todo.md、handoff/*.koto、runs/、lily/
+└── .claude/ 等     # attach 生成的入口指標(相對路徑指向 powerpuff/)
 ```
 
 非互動:
 
 ```bash
-ppg attach --harness claude,vibe --girls blossom,bubbles,buttercup --mode clean --yes
-ppg doctor    # 檢查安裝狀態、驗證 handoff
-ppg detach    # 完整移除,專案無痕
+./powerpuff/ppg attach --harness claude,vibe --girls blossom,bubbles,buttercup --mode clean --yes
+./powerpuff/ppg doctor    # 檢查安裝狀態、驗證 handoff
+./powerpuff/ppg detach    # 移除工作區與指標(框架 clone 保留)
 ```
 
 ## The Girls
@@ -32,20 +41,20 @@ ppg detach    # 完整移除,專案無痕
 
 ## 安裝模式
 
-- **clean(預設)**:目標專案零 tracked file。狀態目錄(`powerpuff/`、`lily/`)是巢狀 git repo(信任檢查所需的歷史在裡面),其餘檔案列入 `.git/info/exclude`(per-clone、不進版控),permissions 走 `.claude/settings.local.json`(Claude Code 原生自動忽略)。
-- **tracked**:一般安裝,檔案進專案版控,適合要讓團隊共享 workflow 的 repo。
+- **clean(預設)**:目標專案零 tracked file。工作區 `kotodute/` 是巢狀 git repo(信任檢查所需的歷史在裡面),框架 `powerpuff/` 與指標檔全部列入 `.git/info/exclude`(per-clone、不進版控),permissions 走 `.claude/settings.local.json`(Claude Code 原生自動忽略)。
+- **tracked**:工作區與指標進專案版控,適合要讓團隊共享 workflow 的 repo(框架 clone 仍建議 exclude,團隊成員各自 clone)。
 
 ## 信任模型(摘要)
 
 - **操作三檔位**:`allow` 正常工作;`ask` 中風險(harness 跳提示,人類按鍵即核可,不可偽造);`deny` 高風險不可逆(agent 永遠不能執行,寫入 `human-todo.md` 由人類親自跑)。
 - **enforcement 不靠 prompt**:Claude Code 走 settings permissions + PreToolUse guard hook;Vibe 走 per-role TOML 白名單。憑證隔離(push key / 簽章 key 不進 agent 環境)是 deny 檔的真正錨點。
-- **handoff 用 [Kotodute](templates/common/kotodute.md)**:機器優先的 S-expression 格式,強制區分 facts/assumptions/open/blockers,事實附 evidence,可用 `koto-check.py` 機械驗證。
+- **handoff 用 [Kotodute](templates/common/kotodute.md)**(專案內的工作區因此命名為 `kotodute/`):機器優先的 S-expression 格式,強制區分 facts/assumptions/open/blockers,事實附 evidence,可用 `koto-check.py` 機械驗證。
 - 詳見 [docs/trust-model.md](docs/trust-model.md)。
 
 ## Repo 結構
 
 ```
-ppg                  # TUI / CLI 安裝器(純 bash,零依賴)
+ppg                  # TUI / CLI 安裝器(純 bash,零依賴;attach/detach/doctor)
 templates/
   common/            # kotodute 協定卡、koto-check.py、scope.md、human-todo.md
   enforcement/       # settings.json(三檔位)、powerpuff-guard.sh(bash 側門封鎖)
@@ -60,4 +69,4 @@ personas/            # Holo / Motoko 思考夥伴 persona(與 workflow 無關)
 
 ## 首次安裝後
 
-跑一次 security test(`ppg doctor` 會提醒):要求 agent `git push` → 應被擋;要求 agent 用 bash 改 `powerpuff/task/scope.md` → 應被擋;要求裝套件 → 應跳 ask 提示而非直接執行。
+跑一次 security test(`ppg doctor` 會提醒):要求 agent `git push` → 應被擋;要求 agent 用 bash 改 `kotodute/scope.md` → 應被擋;要求裝套件 → 應跳 ask 提示而非直接執行。

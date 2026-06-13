@@ -21,8 +21,8 @@
       "Write(./.claude/settings.json)",
       "Edit(./.claude/settings.local.json)",
       "Write(./.claude/settings.local.json)",
-      "Edit(./powerpuff/scripts/**)",
-      "Write(./powerpuff/scripts/**)"
+      "Edit(./powerpuff/**)",
+      "Write(./powerpuff/**)"
     ]
   },
   "hooks": {
@@ -30,7 +30,10 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash powerpuff/scripts/powerpuff-guard.sh" }
+          {
+            "type": "command",
+            "command": "bash powerpuff/templates/enforcement/powerpuff-guard.sh"
+          }
         ]
       }
     ]

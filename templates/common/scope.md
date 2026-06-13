@@ -1,6 +1,6 @@
 # Task Scope
 
-<!-- Blossom fills this in at the start of each task. In parallel (vibe) mode this file lives at powerpuff/runs/<task-id>/scope.md. -->
+<!-- Blossom fills this in at the start of each task. In parallel (vibe) mode this file lives at kotodute/runs/<task-id>/scope.md. -->
 
 ## OpenSpec Change
 

@@ -156,10 +156,15 @@ cmd_attach() {
       *) die "unknown flag: $1" ;;
     esac
   done
-  TARGET=${TARGET:-$PWD}
+  # vendored layout: this checkout must live at <project>/powerpuff/
+  if [ -z "$TARGET" ]; then
+    [ "$(basename "$PPG_ROOT")" = powerpuff ] || die "clone 必須叫 powerpuff(目前: $(basename "$PPG_ROOT"));請 git clone <repo> powerpuff"
+    TARGET=$(dirname "$PPG_ROOT")
+  fi
   TARGET=$(cd "$TARGET" && pwd)
   [ -d "$TARGET/.git" ] || die "target is not a git repo: $TARGET"
-  [ "$TARGET" = "$PPG_ROOT" ] && die "target is the powerpuff repo itself"
+  [ "$TARGET/powerpuff" = "$PPG_ROOT" ] \
+    || die "框架必須位於 $TARGET/powerpuff(目前: $PPG_ROOT);指標使用相對路徑,位置是約定"
 
   printf '%s\n' "${CYAN}${BOLD}powerpuff attach${RESET} → $TARGET"
   echo
@@ -206,7 +211,7 @@ cmd_attach() {
   has_word pi       "$HARNESS" && install_pi
   [ "$MODE" = clean ] && finalize_clean
 
-  mv "$MANIFEST" "$TARGET/powerpuff/.ppg-manifest"
+  mv "$MANIFEST" "$TARGET/kotodute/.ppg-manifest"
   echo
   note "attach 完成。"
   if [ "$MODE" = clean ]; then
@@ -218,45 +223,36 @@ cmd_attach() {
 }
 
 install_state() {
-  local pp="$TARGET/powerpuff"
-  mkdir -p "$pp/scripts" "$pp/archive"
-  copy_into templates/common/kotodute.md          powerpuff/kotodute.md
-  copy_into templates/common/human-todo.md        powerpuff/human-todo.md
-  copy_into templates/common/scripts/koto-check.py powerpuff/scripts/koto-check.py
-  copy_into templates/enforcement/powerpuff-guard.sh powerpuff/scripts/powerpuff-guard.sh
-  chmod +x "$pp/scripts/koto-check.py" "$pp/scripts/powerpuff-guard.sh"
-  : > "$pp/archive/.gitkeep"
-  record dir powerpuff
+  # 工作區 kotodute/:純狀態。框架(warm-up、協定卡、scripts、hook)留在 ./powerpuff
+  local st="$TARGET/kotodute"
+  mkdir -p "$st/handoff" "$st/archive"
+  copy_into templates/common/human-todo.md kotodute/human-todo.md
+  : > "$st/archive/.gitkeep"
+  record dir kotodute
 
   local need_task=0 g
-  for g in blossom bubbles buttercup; do
+  for g in misato blossom bubbles buttercup; do
     if has_word "$g" "$GIRLS"; then
       need_task=1
-      mkdir -p "$pp/$g"
-      copy_into "templates/base/$g/warm-up.md"  "powerpuff/$g/warm-up.md"
-      copy_into "templates/base/$g/handoff.koto" "powerpuff/$g/handoff.koto"
+      if [ "$g" = misato ]; then
+        copy_into templates/vibe/misato/handoff.koto kotodute/handoff/misato.koto
+        mkdir -p "$st/runs"; : > "$st/runs/.gitkeep"
+      else
+        copy_into "templates/base/$g/handoff.koto" "kotodute/handoff/$g.koto"
+      fi
     fi
   done
-  if [ "$need_task" = 1 ]; then
-    mkdir -p "$pp/task"
-    copy_into templates/common/scope.md powerpuff/task/scope.md
-  fi
-  if has_word misato "$GIRLS"; then
-    mkdir -p "$pp/misato" "$pp/runs"
-    copy_into templates/vibe/misato/warm-up.md   powerpuff/misato/warm-up.md
-    copy_into templates/vibe/misato/handoff.koto powerpuff/misato/handoff.koto
-    : > "$pp/runs/.gitkeep"
-  fi
+  [ "$need_task" = 1 ] && copy_into templates/common/scope.md kotodute/scope.md
+
   if has_word lily "$GIRLS"; then
-    mkdir -p "$TARGET/lily/archive"
+    mkdir -p "$st/lily/archive"
     local f
-    for f in warm-up.md task.md work-log.md handoff.md human-todo.md; do
-      copy_into "templates/lily/$f" "lily/$f"
+    for f in task.md work-log.md handoff.md human-todo.md; do
+      copy_into "templates/lily/$f" "kotodute/lily/$f"
     done
-    : > "$TARGET/lily/archive/.gitkeep"
-    record dir lily
+    : > "$st/lily/archive/.gitkeep"
   fi
-  note "state 目錄就緒 (powerpuff/$(has_word lily "$GIRLS" && printf ', lily/'))"
+  note "工作區 kotodute/ 就緒(框架在 ./powerpuff,相對路徑引用)"
 }
 
 girl_commands() { # echo the command stub names for selected girls
@@ -328,14 +324,16 @@ install_pi() {
     local rel=".pi/skills/ppg-$g/SKILL.md"
     if [ -e "$TARGET/$rel" ]; then warn "exists, skipped: $rel"; continue; fi
     mkdir -p "$TARGET/.pi/skills/ppg-$g"
+    local wu="powerpuff/templates/base/$g/warm-up.md"
+    [ "$g" = misato ] && wu="powerpuff/templates/vibe/misato/warm-up.md"
     cat > "$TARGET/$rel" <<SKILL
 ---
 name: ppg-$g
 description: Powerpuff $title ($g) - agent workflow role for this project
 ---
 You are the $title ($g) in this project's Powerpuff agent workflow.
-Read \`powerpuff/$g/warm-up.md\` and follow its instructions.
-Role handoffs use the Kotodute format - see \`powerpuff/kotodute.md\`.
+Read \`$wu\` and follow its instructions.
+The working dir is \`./kotodute/\`; your handoff is \`kotodute/handoff/$g.koto\`.
 SKILL
     record file "$rel"
   done
@@ -349,7 +347,8 @@ name: ppg-lily
 description: Lightweight Magilumiere workflow (Aoi Riri) - plan, execute, check small changes
 ---
 You are 葵 リリー (Aoi Rirī) in this project's lightweight Magilumiere workflow.
-Read `lily/warm-up.md` and follow its instructions. Arguments may name the stage: plan / exec / check.
+Read `powerpuff/templates/lily/warm-up.md` and follow its instructions.
+The working dir is `./kotodute/lily/`. Arguments may name the stage: plan / exec / check.
 SKILL
       record file "$rel"
     fi
@@ -358,26 +357,22 @@ SKILL
 }
 
 finalize_clean() {
-  # nested repos for state, so freeze/evidence checks have git history
-  local d
-  for d in powerpuff lily; do
-    [ -d "$TARGET/$d" ] || continue
-    grep -q "^dir $d\$" "$MANIFEST" || continue
-    if [ ! -d "$TARGET/$d/.git" ]; then
-      (cd "$TARGET/$d" && git init -q && git add -A \
-        && git -c user.name=ppg -c user.email=ppg@local commit -qm "ppg attach v$VERSION")
-    fi
-  done
+  # nested repo for state, so freeze/evidence checks have git history
+  if [ -d "$TARGET/kotodute" ] && [ ! -d "$TARGET/kotodute/.git" ]; then
+    (cd "$TARGET/kotodute" && git init -q && git add -A \
+      && git -c user.name=ppg -c user.email=ppg@local commit -qm "ppg attach v$VERSION")
+  fi
   # per-clone excludes - nothing touches the project's tracked files
   local ex="$TARGET/.git/info/exclude"
   if ! grep -q '# >>> ppg' "$ex" 2>/dev/null; then
     {
       echo '# >>> ppg (managed - do not edit between markers)'
+      echo '/powerpuff/'
       grep '^dir ' "$MANIFEST" | while read -r _ p; do echo "/$p/"; done
       grep '^file ' "$MANIFEST" | while read -r _ p; do echo "/$p"; done
       echo '# <<< ppg'
     } >> "$ex"
-    note "已寫入 .git/info/exclude(per-clone,不進版控)"
+    note "已寫入 .git/info/exclude(per-clone,不進版控;含框架 /powerpuff/)"
   fi
 }
 
@@ -394,7 +389,7 @@ cmd_detach() {
   done
   TARGET=${TARGET:-$PWD}
   TARGET=$(cd "$TARGET" && pwd)
-  local mf="$TARGET/powerpuff/.ppg-manifest"
+  local mf="$TARGET/kotodute/.ppg-manifest"
   [ -f "$mf" ] || die "no ppg manifest at $mf - nothing to detach"
 
   printf '%s\n' "${CYAN}${BOLD}powerpuff detach${RESET} ← $TARGET"
@@ -408,10 +403,14 @@ cmd_detach() {
   if [ -f "$ex" ] && grep -q '# >>> ppg' "$ex"; then
     sed -i.bak '/# >>> ppg/,/# <<< ppg/d' "$ex" && rm -f "$ex.bak"
   fi
+  # the framework clone stays - keep it invisible to git
+  if [ -d "$TARGET/powerpuff" ] && ! grep -qx '/powerpuff/' "$ex" 2>/dev/null; then
+    printf '# ppg framework clone (kept after detach)\n/powerpuff/\n' >> "$ex"
+  fi
   # prune now-empty harness dirs (best effort)
   (cd "$TARGET" && rmdir .pi/skills/ppg-* .pi/skills .pi .vibe/agents .vibe/prompts .vibe \
     .opencode/commands .opencode .claude/commands .claude 2>/dev/null || true)
-  note "detach 完成,專案無殘留。"
+  note "detach 完成。框架 clone(./powerpuff)保留,不需要時自行 rm -rf。"
 }
 
 # ------------------------------------------------------------- doctor ---
@@ -426,21 +425,21 @@ cmd_doctor() {
   done
   TARGET=${TARGET:-$PWD}
   TARGET=$(cd "$TARGET" && pwd)
-  [ -f "$TARGET/powerpuff/.ppg-manifest" ] || die "not attached (no manifest)"
-  sed -n 's/^meta //p' "$TARGET/powerpuff/.ppg-manifest"
+  [ -f "$TARGET/kotodute/.ppg-manifest" ] || die "not attached (no manifest)"
+  sed -n 's/^meta //p' "$TARGET/kotodute/.ppg-manifest"
   echo
   while read -r kind p; do
     case "$kind" in
       file|dir)
         if [ -e "$TARGET/$p" ]; then note "ok: $p"; else warn "missing: $p"; ok=0; fi ;;
     esac
-  done < "$TARGET/powerpuff/.ppg-manifest"
-  for f in "$TARGET"/powerpuff/*/handoff.koto "$TARGET"/powerpuff/runs/*/*.koto; do
+  done < "$TARGET/kotodute/.ppg-manifest"
+  for f in "$TARGET"/kotodute/handoff/*.koto "$TARGET"/kotodute/runs/*/*.koto; do
     [ -e "$f" ] || continue
-    python3 "$TARGET/powerpuff/scripts/koto-check.py" "$f" || ok=0
+    python3 "$PPG_ROOT/templates/common/scripts/koto-check.py" "$f" || ok=0
   done
-  if [ -d "$TARGET/powerpuff/.git" ]; then
-    note "state 是巢狀 git repo(clean 模式)"
+  if [ -d "$TARGET/kotodute/.git" ]; then
+    note "工作區是巢狀 git repo(clean 模式)"
   fi
   echo
   warn "security test 請手動執行:agent 'git push' 應被擋;bash 寫 scope.md 應被擋;裝套件應跳 ask prompt。"

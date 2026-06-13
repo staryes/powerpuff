@@ -39,7 +39,7 @@ Read: parse the root, then `(goal)` `(state)` `(next)` first, then scan `(blocke
 `(open)`; treat assumptions as provisional. Write: update `(state)`, append evidence-backed
 facts, replace `(next)`, then validate:
 
-    python3 powerpuff/scripts/koto-check.py powerpuff/<role>/handoff.koto
+    python3 powerpuff/templates/common/scripts/koto-check.py kotodute/handoff/<role>.koto
 
 A handoff that fails validation must be repaired before the session ends. Readers validate
 a handoff before trusting it.

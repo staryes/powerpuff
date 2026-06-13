@@ -29,27 +29,29 @@
 1. 並行單位是**不相交的任務**:`allowed_paths` 不相交才可並行;相交或有依賴 → 序列化
 2. 每組跑在自己的 **git worktree**(子代理共享檔案系統,context 隔離不等於檔案隔離)
 3. 收斂與合併由 Misato 負責;合併衝突退回該任務的 Blossom 重規劃;Bubbles 永不自己推 trunk
-4. **per-run namespace**:`powerpuff/runs/<task-id>/{scope.md,<role>-handoff.koto}`,避免並行寫壞單一檔案
+4. **per-run namespace**:`kotodute/runs/<task-id>/{scope.md,<role>-handoff.koto}`,避免並行寫壞單一檔案
 5. human-todo id 加 `<task-id>` 前綴防碰撞,Misato 彙整後一次呈給人類
 6. 並行上限 3-4 組,排隊消化,never unbounded
 
 ## 檔案佈局(attach 後的目標專案)
 
+框架以 vendored clone 的形式住在專案的 `powerpuff/`,工作區是獨立的 `kotodute/`;指標全用相對路徑,升級 = `git -C powerpuff pull`(不碰工作區)。
+
 ```
-powerpuff/
-  kotodute.md          # handoff 格式協定卡
-  human-todo.md        # 人類執行面(deny 檔指令佇列)
-  task/scope.md        # 當前任務契約(Blossom 寫,執行期凍結)
-  scripts/             # koto-check.py、powerpuff-guard.sh(受保護)
-  <role>/warm-up.md    # 角色定義
-  <role>/handoff.koto  # 角色狀態(Kotodute)
-  runs/<task-id>/      # 並行模式 per-run namespace
+powerpuff/               # 框架 clone:ppg、templates/(warm-up、協定卡、scripts、hook)
+kotodute/                # 工作區(clean 模式下是巢狀 git repo)
+  scope.md               # 當前任務契約(Blossom 寫,執行期凍結)
+  human-todo.md          # 人類執行面(deny 檔指令佇列)
+  handoff/<girl>.koto    # 角色狀態(Kotodute)
+  runs/<task-id>/        # 並行模式 per-run namespace
+  lily/                  # 選裝:輕量工作流狀態(task/work-log/handoff/human-todo)
   archive/
-lily/                  # 選裝:輕量工作流(task/work-log/handoff/human-todo)
-.claude/commands/      # slash 入口(薄指標)
-.vibe/agents|prompts/  # Vibe 角色定義(TOML 白名單 = enforcement)
-.opencode/commands/    # → symlink 到 .claude/commands
-.pi/skills/ppg-*/      # pi skill 入口
+.claude/commands/        # slash 入口(相對路徑薄指標)
+.vibe/agents|prompts/    # Vibe 角色定義(TOML 白名單 = enforcement)
+.opencode/commands/      # → symlink 到 .claude/commands
+.pi/skills/ppg-*/        # pi skill 入口
 ```
+
+注意:scope.md 的凍結檢查在狀態目錄自身的 git 歷史上跑(`git -C kotodute log -- scope.md`),clean / tracked 兩種模式皆成立。
 
 完整論述(含每一步驟的設計理由)保留在 `legacy/` 的三份原始文件。
