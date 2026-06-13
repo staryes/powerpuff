@@ -1,0 +1,12 @@
+(kotodute
+  (v 0.1)
+  (goal (fill with the active task outcome))
+  (state
+    (owner buttercup)
+    (status pending)   ; pending / approved / changes-requested / blocked
+    (change none))     ; e.g. (change openspec/changes/add-dark-mode)
+  (facts)              ; checks performed and their results, each with (evidence ...)
+  (open)               ; issues found - flag, do not fix
+  (next
+    (do (review against scope and spec))
+    (done when (verdict recorded with evidence))))

@@ -1,0 +1,14 @@
+agent_type = "subagent"
+display_name = "Blossom"
+description = "Planner subagent. Writes the I/O contract and verification items into scope.md."
+system_prompt_id = "blossom"
+safety = "safe"
+
+# Read project + openspec; write only into powerpuff/ (scope.md, handoff.koto). No bash.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace"]
+
+[tools.write_file]
+permission = "always"
+
+[tools.search_replace]
+permission = "always"

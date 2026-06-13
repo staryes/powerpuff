@@ -1,0 +1,15 @@
+agent_type = "subagent"
+display_name = "Buttercup"
+description = "Test/Review subagent. Independently writes tests from scope.md's verification items, runs them, reports."
+system_prompt_id = "buttercup"
+safety = "safe"
+
+# Read everything; write tests + handoff only; run tests. No search_replace - never edits implementation.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "bash"]
+disabled_tools = ["search_replace", "mcp_*"]
+
+[tools.write_file]
+permission = "always"
+
+[tools.bash]
+permission = "ask"

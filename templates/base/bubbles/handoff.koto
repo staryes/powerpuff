@@ -1,0 +1,15 @@
+(kotodute
+  (v 0.1)
+  (goal (fill with the active task outcome))
+  (state
+    (owner bubbles)
+    (status pending)   ; pending / in-progress / blocked / done
+    (change none)      ; e.g. (change openspec/changes/add-dark-mode)
+    (artifacts))       ; one (file path) per modified file
+  (facts)              ; completed tasks.md items, each with (evidence ...)
+  (assumptions)        ; provisional beliefs used during implementation
+  (blockers)           ; pending human TODOs, reference their ids
+  (open)               ; what Buttercup should check
+  (next
+    (do (read scope and execute the checklist))
+    (done when (all checklist items implemented))))

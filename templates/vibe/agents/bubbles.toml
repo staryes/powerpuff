@@ -1,0 +1,20 @@
+agent_type = "subagent"
+display_name = "Bubbles"
+description = "Executor subagent. Implements the task within scope.md's allowed_paths and self-tests."
+system_prompt_id = "bubbles"
+safety = "neutral"
+
+# Edit + bash for running tests. MCP tools off by default - turn on per-project as needed.
+# NOTE: confirm Vibe matches `mcp_*` as a glob in disabled_tools; if not, list explicit names.
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace", "bash"]
+disabled_tools = ["mcp_*"]
+
+[tools.write_file]
+permission = "always"
+
+[tools.search_replace]
+permission = "always"
+
+[tools.bash]
+# Keep on `ask` until you trust the run; this is the ask tier of the operation model.
+permission = "ask"

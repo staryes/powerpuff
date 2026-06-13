@@ -1,0 +1,463 @@
+#!/usr/bin/env bash
+# ppg - Powerpuff agent workflow installer (TUI + CLI)
+#
+#   ppg attach [--target DIR] [--harness claude,vibe,opencode,pi]
+#              [--girls misato,blossom,bubbles,buttercup,lily]
+#              [--mode clean|tracked] [--yes]
+#   ppg detach [--target DIR] [--yes]
+#   ppg doctor [--target DIR]
+#
+# Run `ppg attach` with no flags for the interactive TUI.
+# bash 3.2 compatible (macOS default). Zero dependencies.
+
+set -eu
+
+PPG_ROOT=$(cd "$(dirname "$0")" && pwd)
+VERSION="0.1.0"
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; REV=$'\033[7m'; RESET=$'\033[0m'
+GREEN=$'\033[32m'; YELLOW=$'\033[33m'; CYAN=$'\033[36m'
+
+err() { printf 'ppg: %s\n' "$*" >&2; }
+die() { err "$*"; exit 1; }
+note() { printf '%s•%s %s\n' "$GREEN" "$RESET" "$*"; }
+warn() { printf '%s!%s %s\n' "$YELLOW" "$RESET" "$*"; }
+
+# ---------------------------------------------------------------- ui ---
+
+read_key() {
+  local k rest=""
+  IFS= read -rsn1 k || return 1
+  if [ "$k" = $'\033' ]; then
+    IFS= read -rsn2 -t 1 rest || true
+    case "$rest" in
+      '[A') echo up ;; '[B') echo down ;; *) echo esc ;;
+    esac
+  elif [ -z "$k" ]; then echo enter
+  elif [ "$k" = " " ]; then echo space
+  else echo "$k"
+  fi
+}
+
+# multi_select "title" OUTVAR item ...   (prefix item with * to pre-select)
+multi_select() {
+  local title=$1 outvar=$2; shift 2
+  local items sel n=0 i cur=0 key out="" it mark
+  items=(); sel=()
+  for it in "$@"; do
+    case "$it" in
+      \**) items[n]=${it#\*}; sel[n]=1 ;;
+      *)   items[n]=$it;      sel[n]=0 ;;
+    esac
+    n=$((n + 1))
+  done
+  printf '%s\n' "${BOLD}${title}${RESET} ${DIM}(↑↓ 移動 / space 切換 / enter 確認 / q 離開)${RESET}"
+  i=0; while [ $i -lt $n ]; do echo; i=$((i + 1)); done
+  while :; do
+    printf '\033[%dA' "$n"
+    i=0
+    while [ $i -lt $n ]; do
+      mark="[ ]"; [ "${sel[i]}" = 1 ] && mark="[x]"
+      if [ $i -eq $cur ]; then
+        printf '\r\033[K  %s%s %s%s\n' "$REV" "$mark" "${items[i]}" "$RESET"
+      else
+        printf '\r\033[K  %s %s\n' "$mark" "${items[i]}"
+      fi
+      i=$((i + 1))
+    done
+    key=$(read_key)
+    case "$key" in
+      up)    cur=$(( (cur + n - 1) % n )) ;;
+      down)  cur=$(( (cur + 1) % n )) ;;
+      space) sel[cur]=$((1 - sel[cur])) ;;
+      enter) break ;;
+      q|esc) die "aborted" ;;
+    esac
+  done
+  i=0
+  while [ $i -lt $n ]; do
+    [ "${sel[i]}" = 1 ] && out="$out ${items[i]}"
+    i=$((i + 1))
+  done
+  eval "$outvar=\${out# }"
+}
+
+# single_select "title" OUTVAR item ...
+single_select() {
+  local title=$1 outvar=$2; shift 2
+  local items n=0 i cur=0 key it
+  items=()
+  for it in "$@"; do items[n]=$it; n=$((n + 1)); done
+  printf '%s\n' "${BOLD}${title}${RESET} ${DIM}(↑↓ 移動 / enter 確認 / q 離開)${RESET}"
+  i=0; while [ $i -lt $n ]; do echo; i=$((i + 1)); done
+  while :; do
+    printf '\033[%dA' "$n"
+    i=0
+    while [ $i -lt $n ]; do
+      if [ $i -eq $cur ]; then
+        printf '\r\033[K  %s(o) %s%s\n' "$REV" "${items[i]}" "$RESET"
+      else
+        printf '\r\033[K  ( ) %s\n' "${items[i]}"
+      fi
+      i=$((i + 1))
+    done
+    key=$(read_key)
+    case "$key" in
+      up)   cur=$(( (cur + n - 1) % n )) ;;
+      down) cur=$(( (cur + 1) % n )) ;;
+      enter) break ;;
+      q|esc) die "aborted" ;;
+    esac
+  done
+  eval "$outvar=\${items[cur]}"
+}
+
+confirm() { # confirm "question" -> 0/1
+  local ans
+  printf '%s [y/N] ' "$1"
+  IFS= read -r ans
+  case "$ans" in y|Y|yes) return 0 ;; *) return 1 ;; esac
+}
+
+# ------------------------------------------------------------ helpers ---
+
+has_word() { # has_word needle "list of words"
+  case " $2 " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+
+MANIFEST=""
+record() { printf '%s %s\n' "$1" "$2" >> "$MANIFEST"; }
+
+copy_into() { # copy_into SRC REL_DST  (REL_DST relative to TARGET)
+  mkdir -p "$(dirname "$TARGET/$2")"
+  cp "$PPG_ROOT/$1" "$TARGET/$2"
+}
+
+write_outside() { # write_outside SRC REL_DST - file outside state dirs, recorded
+  if [ -e "$TARGET/$2" ]; then
+    warn "exists, skipped: $2"
+    return 0
+  fi
+  copy_into "$1" "$2"
+  record file "$2"
+}
+
+# ------------------------------------------------------------- attach ---
+
+cmd_attach() {
+  local TARGET="" HARNESS="" GIRLS="" MODE="" YES=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target)  TARGET=$2; shift 2 ;;
+      --harness) HARNESS=$(printf '%s' "$2" | tr ',' ' '); shift 2 ;;
+      --girls)   GIRLS=$(printf '%s' "$2" | tr ',' ' '); shift 2 ;;
+      --mode)    MODE=$2; shift 2 ;;
+      --yes)     YES=1; shift ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  TARGET=${TARGET:-$PWD}
+  TARGET=$(cd "$TARGET" && pwd)
+  [ -d "$TARGET/.git" ] || die "target is not a git repo: $TARGET"
+  [ "$TARGET" = "$PPG_ROOT" ] && die "target is the powerpuff repo itself"
+
+  printf '%s\n' "${CYAN}${BOLD}powerpuff attach${RESET} → $TARGET"
+  echo
+
+  [ -n "$HARNESS" ] || multi_select "選擇 harness" HARNESS "*claude" "vibe" "opencode" "pi"
+  [ -n "$GIRLS" ]   || multi_select "選擇 girls (agents)" GIRLS \
+      "*blossom   - Planner" "*bubbles   - Executor" "*buttercup - Reviewer" \
+      "misato    - Orchestrator (vibe)" "lily      - Lightweight all-in-one"
+  GIRLS=$(printf '%s' "$GIRLS" | tr -s ' ' '\n' | grep -E '^(misato|blossom|bubbles|buttercup|lily)$' | tr '\n' ' ')
+  GIRLS=${GIRLS% }
+  [ -n "$MODE" ] || single_select "安裝模式" MODE \
+      "clean   - 零 tracked file:巢狀 git repo + .git/info/exclude + settings.local.json" \
+      "tracked - 一般安裝,檔案進專案版控(團隊共享)"
+  MODE=${MODE%% *}
+  [ -n "$HARNESS" ] || die "no harness selected"
+  [ -n "$GIRLS" ]   || die "no girls selected"
+  case "$MODE" in clean|tracked) ;; *) die "mode must be clean|tracked" ;; esac
+
+  # misato orchestrates the trio - pull them in; misato is vibe-native
+  if has_word misato "$GIRLS"; then
+    for g in blossom bubbles buttercup; do
+      has_word "$g" "$GIRLS" || GIRLS="$GIRLS $g"
+    done
+    has_word vibe "$HARNESS" || warn "misato 的 task-tool dispatch 只在 vibe 內可用;其他 harness 僅作為平行介面"
+  fi
+  # opencode commands link to claude's - need the stubs either way
+
+  echo
+  printf '%s\n' "${BOLD}摘要${RESET}"
+  printf '  target : %s\n  harness: %s\n  girls  : %s\n  mode   : %s\n' "$TARGET" "$HARNESS" "$GIRLS" "$MODE"
+  echo
+  if [ "$YES" != 1 ]; then
+    confirm "執行安裝?" || die "aborted"
+  fi
+
+  MANIFEST=$(mktemp)
+  printf 'meta version %s\nmeta mode %s\nmeta harness %s\nmeta girls %s\n' \
+    "$VERSION" "$MODE" "$HARNESS" "$GIRLS" >> "$MANIFEST"
+
+  install_state
+  has_word claude   "$HARNESS" && install_claude
+  has_word opencode "$HARNESS" && install_opencode
+  has_word vibe     "$HARNESS" && install_vibe
+  has_word pi       "$HARNESS" && install_pi
+  [ "$MODE" = clean ] && finalize_clean
+
+  mv "$MANIFEST" "$TARGET/powerpuff/.ppg-manifest"
+  echo
+  note "attach 完成。"
+  if [ "$MODE" = clean ]; then
+    note "目標專案 git 全程無痕:state 在巢狀 repo,其餘檔案已列入 .git/info/exclude。"
+  else
+    note "tracked 模式:請自行 git add / commit 新檔案。"
+  fi
+  warn "首次使用請跑 security test:要求 agent 'git push'(應被擋)、bash 寫入 scope.md(應被擋)、裝套件(應跳 ask prompt)。"
+}
+
+install_state() {
+  local pp="$TARGET/powerpuff"
+  mkdir -p "$pp/scripts" "$pp/archive"
+  copy_into templates/common/kotodute.md          powerpuff/kotodute.md
+  copy_into templates/common/human-todo.md        powerpuff/human-todo.md
+  copy_into templates/common/scripts/koto-check.py powerpuff/scripts/koto-check.py
+  copy_into templates/enforcement/powerpuff-guard.sh powerpuff/scripts/powerpuff-guard.sh
+  chmod +x "$pp/scripts/koto-check.py" "$pp/scripts/powerpuff-guard.sh"
+  : > "$pp/archive/.gitkeep"
+  record dir powerpuff
+
+  local need_task=0 g
+  for g in blossom bubbles buttercup; do
+    if has_word "$g" "$GIRLS"; then
+      need_task=1
+      mkdir -p "$pp/$g"
+      copy_into "templates/base/$g/warm-up.md"  "powerpuff/$g/warm-up.md"
+      copy_into "templates/base/$g/handoff.koto" "powerpuff/$g/handoff.koto"
+    fi
+  done
+  if [ "$need_task" = 1 ]; then
+    mkdir -p "$pp/task"
+    copy_into templates/common/scope.md powerpuff/task/scope.md
+  fi
+  if has_word misato "$GIRLS"; then
+    mkdir -p "$pp/misato" "$pp/runs"
+    copy_into templates/vibe/misato/warm-up.md   powerpuff/misato/warm-up.md
+    copy_into templates/vibe/misato/handoff.koto powerpuff/misato/handoff.koto
+    : > "$pp/runs/.gitkeep"
+  fi
+  if has_word lily "$GIRLS"; then
+    mkdir -p "$TARGET/lily/archive"
+    local f
+    for f in warm-up.md task.md work-log.md handoff.md human-todo.md; do
+      copy_into "templates/lily/$f" "lily/$f"
+    done
+    : > "$TARGET/lily/archive/.gitkeep"
+    record dir lily
+  fi
+  note "state 目錄就緒 (powerpuff/$(has_word lily "$GIRLS" && printf ', lily/'))"
+}
+
+girl_commands() { # echo the command stub names for selected girls
+  local g
+  for g in $GIRLS; do
+    case "$g" in
+      lily) echo lily-plan.md; echo lily-exec.md; echo lily-check.md ;;
+      *)    echo "$g.md" ;;
+    esac
+  done
+  echo ppg.md
+}
+
+install_claude() {
+  local f
+  mkdir -p "$TARGET/.claude/commands"
+  for f in $(girl_commands); do
+    write_outside "templates/commands/claude/$f" ".claude/commands/$f"
+  done
+  local dst=".claude/settings.local.json"
+  [ "$MODE" = tracked ] && dst=".claude/settings.json"
+  if [ -e "$TARGET/$dst" ]; then
+    write_outside templates/enforcement/settings.json ".claude/settings.ppg.json"
+    warn "$dst 已存在;規則寫到 .claude/settings.ppg.json,請手動合併(permissions + hooks)"
+  else
+    write_outside templates/enforcement/settings.json "$dst"
+  fi
+  note "claude code: commands + enforcement (${dst})"
+}
+
+install_opencode() {
+  local f
+  mkdir -p "$TARGET/.opencode/commands"
+  for f in $(girl_commands); do
+    if [ -e "$TARGET/.claude/commands/$f" ]; then
+      if [ ! -e "$TARGET/.opencode/commands/$f" ]; then
+        ln -s "../../.claude/commands/$f" "$TARGET/.opencode/commands/$f"
+        record file ".opencode/commands/$f"
+      fi
+    else
+      write_outside "templates/commands/claude/$f" ".opencode/commands/$f"
+    fi
+  done
+  note "opencode: commands"
+}
+
+install_vibe() {
+  local roles="blossom bubbles buttercup" r
+  has_word misato "$GIRLS" && roles="misato $roles"
+  mkdir -p "$TARGET/.vibe/agents" "$TARGET/.vibe/prompts"
+  for r in $roles; do
+    has_word "$r" "$GIRLS" || continue
+    write_outside "templates/vibe/agents/$r.toml"  ".vibe/agents/$r.toml"
+    write_outside "templates/vibe/prompts/$r.md"   ".vibe/prompts/$r.md"
+  done
+  note "vibe: agents + prompts (入口:vibe --agent misato)"
+}
+
+install_pi() {
+  local g title
+  for g in $GIRLS; do
+    [ "$g" = lily ] && continue
+    case "$g" in
+      misato)    title="Orchestrator (vibe-native; here as a parallel surface)" ;;
+      blossom)   title="Planner" ;;
+      bubbles)   title="Executor" ;;
+      buttercup) title="Reviewer" ;;
+    esac
+    local rel=".pi/skills/ppg-$g/SKILL.md"
+    if [ -e "$TARGET/$rel" ]; then warn "exists, skipped: $rel"; continue; fi
+    mkdir -p "$TARGET/.pi/skills/ppg-$g"
+    cat > "$TARGET/$rel" <<SKILL
+---
+name: ppg-$g
+description: Powerpuff $title ($g) - agent workflow role for this project
+---
+You are the $title ($g) in this project's Powerpuff agent workflow.
+Read \`powerpuff/$g/warm-up.md\` and follow its instructions.
+Role handoffs use the Kotodute format - see \`powerpuff/kotodute.md\`.
+SKILL
+    record file "$rel"
+  done
+  if has_word lily "$GIRLS"; then
+    local rel=".pi/skills/ppg-lily/SKILL.md"
+    if [ ! -e "$TARGET/$rel" ]; then
+      mkdir -p "$TARGET/.pi/skills/ppg-lily"
+      cat > "$TARGET/$rel" <<'SKILL'
+---
+name: ppg-lily
+description: Lightweight Magilumiere workflow (Aoi Riri) - plan, execute, check small changes
+---
+You are 葵 リリー (Aoi Rirī) in this project's lightweight Magilumiere workflow.
+Read `lily/warm-up.md` and follow its instructions. Arguments may name the stage: plan / exec / check.
+SKILL
+      record file "$rel"
+    fi
+  fi
+  note "pi: skills (/skill:ppg-<girl>)"
+}
+
+finalize_clean() {
+  # nested repos for state, so freeze/evidence checks have git history
+  local d
+  for d in powerpuff lily; do
+    [ -d "$TARGET/$d" ] || continue
+    grep -q "^dir $d\$" "$MANIFEST" || continue
+    if [ ! -d "$TARGET/$d/.git" ]; then
+      (cd "$TARGET/$d" && git init -q && git add -A \
+        && git -c user.name=ppg -c user.email=ppg@local commit -qm "ppg attach v$VERSION")
+    fi
+  done
+  # per-clone excludes - nothing touches the project's tracked files
+  local ex="$TARGET/.git/info/exclude"
+  if ! grep -q '# >>> ppg' "$ex" 2>/dev/null; then
+    {
+      echo '# >>> ppg (managed - do not edit between markers)'
+      grep '^dir ' "$MANIFEST" | while read -r _ p; do echo "/$p/"; done
+      grep '^file ' "$MANIFEST" | while read -r _ p; do echo "/$p"; done
+      echo '# <<< ppg'
+    } >> "$ex"
+    note "已寫入 .git/info/exclude(per-clone,不進版控)"
+  fi
+}
+
+# ------------------------------------------------------------- detach ---
+
+cmd_detach() {
+  local TARGET="" YES=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target) TARGET=$2; shift 2 ;;
+      --yes)    YES=1; shift ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  TARGET=${TARGET:-$PWD}
+  TARGET=$(cd "$TARGET" && pwd)
+  local mf="$TARGET/powerpuff/.ppg-manifest"
+  [ -f "$mf" ] || die "no ppg manifest at $mf - nothing to detach"
+
+  printf '%s\n' "${CYAN}${BOLD}powerpuff detach${RESET} ← $TARGET"
+  grep -E '^(file|dir) ' "$mf" | sed 's/^/  rm /'
+  if [ "$YES" != 1 ]; then
+    confirm "移除以上項目?(state 目錄會整個刪除)" || die "aborted"
+  fi
+  grep '^file ' "$mf" | while read -r _ p; do rm -f "$TARGET/$p"; done
+  grep '^dir '  "$mf" | while read -r _ p; do rm -rf "${TARGET:?}/$p"; done
+  local ex="$TARGET/.git/info/exclude"
+  if [ -f "$ex" ] && grep -q '# >>> ppg' "$ex"; then
+    sed -i.bak '/# >>> ppg/,/# <<< ppg/d' "$ex" && rm -f "$ex.bak"
+  fi
+  # prune now-empty harness dirs (best effort)
+  (cd "$TARGET" && rmdir .pi/skills/ppg-* .pi/skills .pi .vibe/agents .vibe/prompts .vibe \
+    .opencode/commands .opencode .claude/commands .claude 2>/dev/null || true)
+  note "detach 完成,專案無殘留。"
+}
+
+# ------------------------------------------------------------- doctor ---
+
+cmd_doctor() {
+  local TARGET="" ok=1 f
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target) TARGET=$2; shift 2 ;;
+      *) die "unknown flag: $1" ;;
+    esac
+  done
+  TARGET=${TARGET:-$PWD}
+  TARGET=$(cd "$TARGET" && pwd)
+  [ -f "$TARGET/powerpuff/.ppg-manifest" ] || die "not attached (no manifest)"
+  sed -n 's/^meta //p' "$TARGET/powerpuff/.ppg-manifest"
+  echo
+  while read -r kind p; do
+    case "$kind" in
+      file|dir)
+        if [ -e "$TARGET/$p" ]; then note "ok: $p"; else warn "missing: $p"; ok=0; fi ;;
+    esac
+  done < "$TARGET/powerpuff/.ppg-manifest"
+  for f in "$TARGET"/powerpuff/*/handoff.koto "$TARGET"/powerpuff/runs/*/*.koto; do
+    [ -e "$f" ] || continue
+    python3 "$TARGET/powerpuff/scripts/koto-check.py" "$f" || ok=0
+  done
+  if [ -d "$TARGET/powerpuff/.git" ]; then
+    note "state 是巢狀 git repo(clean 模式)"
+  fi
+  echo
+  warn "security test 請手動執行:agent 'git push' 應被擋;bash 寫 scope.md 應被擋;裝套件應跳 ask prompt。"
+  [ "$ok" = 1 ] && note "doctor: all good" || warn "doctor: issues found"
+}
+
+# --------------------------------------------------------------- main ---
+
+usage() {
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+case "${1:-}" in
+  attach) shift; cmd_attach "$@" ;;
+  detach) shift; cmd_detach "$@" ;;
+  doctor) shift; cmd_doctor "$@" ;;
+  -h|--help|help|"") usage ;;
+  --version) echo "ppg $VERSION" ;;
+  *) die "unknown command: $1 (try: ppg help)" ;;
+esac

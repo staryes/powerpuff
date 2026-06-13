@@ -1,0 +1,12 @@
+(kotodute
+  (v 0.1)
+  (goal (fill with the active task outcome))
+  (state
+    (owner blossom)
+    (status pending)   ; pending / planning / scope-ready
+    (change none))     ; e.g. (change openspec/changes/add-dark-mode)
+  (facts)              ; what has been planned, with evidence
+  (open)               ; unresolved decisions needing human or reviewer input
+  (next
+    (do (read openspec changes and draft scope))
+    (done when (scope defines the contract and verification items))))

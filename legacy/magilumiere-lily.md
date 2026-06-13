@@ -139,23 +139,15 @@ CHANGES_REQUESTED - <what needs to change>
 BLOCKED - <reason>
 ```
 
-## Dangerous Operations
+## Operation Tiers
 
-These operations require explicit human approval before execution:
+Operations follow the same three-tier model as the Powerpuff workflow. If the project has the enforcement layer (`.claude/settings.json` + guard hook, see `powerpuff.md` Step 5), it applies here automatically.
 
-- install, remove, or upgrade packages
-- modify lockfiles
-- use network access for project-changing work
-- modify CI/CD
-- modify secrets, credentials, or environment files
-- run database migrations
-- deploy to production
-- push to a remote
-- run destructive git commands
-- delete many files
-- change a public API or data contract
+- **allow** - normal work. Just do it.
+- **ask (medium risk)** - install/remove/upgrade dev dependencies, modify lockfiles, local database migrations. Attempt normally; the harness prompts the human, and the answer at the prompt **is** the approval. Summarize what was approved in `lily/work-log.md`.
+- **human-only (high risk / irreversible)** - never execute: push to a remote, destructive git, deploys, secrets or CI/CD changes, network access for project-changing work, mass deletion, public API or data contract changes. Add the exact command to `lily/human-todo.md` for the human to run personally, and note it in `lily/handoff.md`.
 
-Record the approval in `lily/human-todo.md` or in the session transcript, then summarize it in `lily/work-log.md`.
+After the human resolves a TODO, verify the resulting environment state (lockfile changed, package importable, branch on remote) - never treat the TODO text alone as proof.
 
 ## Record Rules
 
@@ -329,20 +321,20 @@ Chronological record of work performed by 葵 リリー (Aoi Rirī).
 
 This is the human decision surface for the lightweight 葵 リリー (Aoi Rirī) workflow.
 
-Use this file for approvals, questions, and decisions that should survive across sessions.
+Use this file for commands the human must run personally, plus questions and decisions that should survive across sessions.
+
+Human-only operations are not approved here - **you run them yourself in a regular terminal** and record the result. Ask-tier operations are normally approved live at the harness prompt and only land here when no human was present to answer.
 
 ## Response Format
 
 Replace `PENDING` with one of:
 
 ```text
-APPROVE
+DONE <what you ran and the result>
 REJECT <direction>
 ASK <question or direction>
 DEFER <optional note>
 ```
-
-For high-risk operations, prefer committing the approval yourself so there is an auditable trail.
 
 ---
 
@@ -350,25 +342,28 @@ For high-risk operations, prefer committing the approval yourself so there is an
 
 <!-- Agents add new TODOs here. Example:
 
-### TODO-001 - Approve dependency install
+### TODO-001 - Push feature branch
 
-- Type: operation-approval
-- Risk: medium
+- Tier: human-only
 - Requested by: 葵 リリー (Aoi Rirī)
-- Blocks: Execute
+- Blocks: Check handoff
 - Created: YYYY-MM-DD
 
-#### Request
+#### Command
 
-Run:
+Run in a regular terminal:
 
 ```bash
-npm install <package> --save-dev
+git push -u origin feature/<branch>
 ```
 
 #### Why
 
-The task requires this dependency.
+The task is complete and review happens from the remote branch.
+
+#### How the agent verifies completion
+
+`git ls-remote origin feature/<branch>` returns the branch.
 
 #### Human Response
 

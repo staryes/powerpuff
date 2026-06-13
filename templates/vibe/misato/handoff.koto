@@ -1,0 +1,14 @@
+(kotodute
+  (v 0.1)
+  (goal (fill with the project-level objective))
+  (state
+    (owner misato)
+    (status pending)
+    (runs))            ; one (run <task-id> (worktree path) (stage <role>) (status ...)) per in-flight run
+  (facts)              ; task split + dependency graph: (task <id> (paths ...) (depends-on ...))
+  (decisions)          ; routing per task: (choose (route <id> full-pipeline)) (because (complexity high))
+  (open)               ; pending merges and conflicts
+  (blockers)           ; aggregated PENDING human items across runs
+  (next
+    (do (dispatch or collect runs))
+    (done when (all runs merged or parked with reasons))))

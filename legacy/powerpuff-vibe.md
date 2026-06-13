@@ -74,6 +74,7 @@ powerpuff/blossom/
 powerpuff/bubbles/
 powerpuff/buttercup/
 powerpuff/task/
+powerpuff/scripts/
 powerpuff/runs/
 powerpuff/archive/
 ```
@@ -105,7 +106,7 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 ## Read First
 
-1. `powerpuff/misato/handoff.md` - your previous session context
+1. `powerpuff/misato/handoff.koto` - your previous session context
 2. `openspec/changes/` - active OpenSpec changes
 3. `openspec/specs/` - system specifications
 4. `powerpuff/runs/` - in-flight run namespaces and their handoffs
@@ -122,7 +123,7 @@ Routing by complexity is the essence of a dynamic workflow - do not push every t
 
 ## Sequential (single-task) mode
 
-For one task at a time, the canonical files are `powerpuff/task/scope.md` and `powerpuff/<role>/handoff.md`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
+For one task at a time, the canonical files are `powerpuff/task/scope.md` and `powerpuff/<role>/handoff.koto`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
 
 ## Parallel orchestration (fan-out)
 
@@ -131,7 +132,7 @@ You may dispatch several Blossom / Bubbles / Buttercup groups concurrently (mult
 1. **The unit of parallelism is a disjoint task, not an arbitrary slice.** Before fanning out, build a dependency graph and detect conflicts: two tasks whose `allowed_paths` do **not** intersect → may run in parallel; intersecting paths, or B depends on A's output → serialize. This is an extension of your split + complexity duties, with an added dependency/conflict dimension.
 2. **Each group runs in its own git worktree or clone.** Subagents share the host file system even though their context is isolated - multiple Bubbles writing to the same paths will clobber each other's edits, fight over the git index, and have files change mid-test. Each group gets its own worktree path, reclaimed when done. The worktree path is included in the spawning prompt; the run's `scope.md` roots `allowed_paths` inside that worktree.
 3. **Convergence and merging are yours.** You fan out → wait for all `task` calls to return → merge in order → on merge conflict, send the affected task back to its Blossom to re-plan. Bubbles instances must never push to the trunk themselves.
-4. **Per-run namespace for handoffs / work-logs.** A single `handoff.md` written concurrently by many Bubbles will corrupt. In parallel mode use `powerpuff/runs/<task-id>/{blossom,bubbles,buttercup}-handoff.md` and `powerpuff/runs/<task-id>/scope.md`. You seed each run's `scope.md` into its namespace before fan-out, and aggregate the per-run handoffs after.
+4. **Per-run namespace for handoffs / work-logs.** A single `handoff.koto` written concurrently by many Bubbles will corrupt. In parallel mode use `powerpuff/runs/<task-id>/{blossom,bubbles,buttercup}-handoff.koto` and `powerpuff/runs/<task-id>/scope.md`. You seed each run's `scope.md` into its namespace before fan-out, and aggregate the per-run handoffs after.
 5. **Human-todo collision guard.** TODO ids are prefixed with `<task-id>` (e.g. `TODO-<task-id>-001`), not a global counter. Collect the PENDING items from all runs and present them to the human in one batch - do not let each session insert/overwrite blindly.
 6. **Concurrency cap.** Even with subagent isolation you will hit Vibe rate limits, local resources, and your own context ceiling reading N results back. Cap at **3-4 groups** at once and drain a queue; never fan out unbounded.
 
@@ -141,7 +142,7 @@ For each task `<task-id>` you route to the full pipeline:
 
 1. Create `powerpuff/runs/<task-id>/` and write `scope.md` there (or seed it empty for Blossom to fill).
 2. Provision a worktree: `git worktree add powerpuff-run-<task-id> -b run/<task-id>` (or a clone). The worktree path is named in the subagent's spawning prompt; the subagent reads/writes inside that path.
-3. Spawn Blossom → Bubbles → Buttercup for the run via the `task` tool, each writing to `powerpuff/runs/<task-id>/<role>-handoff.md`.
+3. Spawn Blossom → Bubbles → Buttercup for the run via the `task` tool, each writing to `powerpuff/runs/<task-id>/<role>-handoff.koto`.
 4. On Buttercup APPROVED, collect the worktree, merge in dependency order, and on conflict send the task back to its Blossom.
 5. Reclaim the worktree (`git worktree remove`) and archive the run namespace.
 
@@ -159,11 +160,13 @@ You are Bubbles for run <task-id>.
 Run directory: powerpuff/runs/<task-id>/
 Worktree:      powerpuff-run-<task-id>/
 Read powerpuff/bubbles/warm-up.md and powerpuff/runs/<task-id>/scope.md, then execute.
-Write your handoff to powerpuff/runs/<task-id>/bubbles-handoff.md before returning.
+Write your handoff to powerpuff/runs/<task-id>/bubbles-handoff.koto before returning.
 Return a one-paragraph status summary to me.
 ```
 
-**Why a short prompt + handoff files instead of stuffing state into the prompt:** subagents return **text-only** to the parent. Rich state - diffs, test results, blockers - must live on disk (`<role>-handoff.md`) so any future role or session can re-read it. The spawning prompt's only job is to point the subagent at its run directory and let the warm-up + scope do the rest.
+**Why a short prompt + handoff files instead of stuffing state into the prompt:** subagents return **text-only** to the parent. Rich state - diffs, test results, blockers - must live on disk (`<role>-handoff.koto`) so any future role or session can re-read it. The spawning prompt's only job is to point the subagent at its run directory and let the warm-up + scope do the rest.
+
+Handoffs use the Kotodute S-expression format (`powerpuff/kotodute.md`). When you collect a run, validate its handoff files with `python3 powerpuff/scripts/koto-check.py <file>` before trusting them - especially Blossom's, since Blossom has no bash to validate her own.
 
 ### Permissions: TOML whitelist per subagent
 
@@ -185,19 +188,19 @@ Vibe's runaway guards are configured per-agent (in the TOML) or globally in `~/.
 - Spawn Blossom / Bubbles / Buttercup via the `task` tool
 - Merge approved runs in dependency order
 - Aggregate per-run human-todo items and present them in one batch
-- Update `powerpuff/misato/handoff.md`
+- Update `powerpuff/misato/handoff.koto`
 
 ## You Must Not
 
 - Write to `openspec/specs/` directly
-- Change `PENDING` to `APPROVE` in `powerpuff/human-todo.md`
+- Resolve TODOs in `powerpuff/human-todo.md` - only the human changes `PENDING` to a final response
 - Do Blossom's per-task planning or Bubbles' implementation yourself
 - Fan out intersecting-path tasks in parallel, or exceed the concurrency cap
 - Push a run to the trunk before its Buttercup returns APPROVED
 
 ## End of Session
 
-Update `powerpuff/misato/handoff.md` with:
+Update `powerpuff/misato/handoff.koto` with:
 
 - The task split and dependency graph
 - Routing decisions per task (Lily / direct-Bubbles / full pipeline) and complexity tags
@@ -208,37 +211,23 @@ Update `powerpuff/misato/handoff.md` with:
 
 ---
 
-### `powerpuff/misato/handoff.md`
+### `powerpuff/misato/handoff.koto`
 
-```markdown
-# Misato Handoff
-
-**Role:** Orchestrator / Router
-**Last Updated:** -
-
-## Task Split & Dependency Graph
-
-<!-- Tasks, their allowed_paths, and which depend on which. -->
-
-## Routing Decisions
-
-<!-- Per task: complexity tag + route (Lily / direct-Bubbles / full pipeline). -->
-
-## In-Flight Runs
-
-<!-- task-id, worktree, current role, status. -->
-
-## Pending Merges / Conflicts
-
-<!-- Runs awaiting merge, and any conflicts sent back to Blossom. -->
-
-## Human Items
-
-<!-- Aggregated PENDING items across runs. -->
-
-## Notes for Next Session
-
-<!-- Key context for the next Orchestrator session. -->
+```lisp
+(kotodute
+  (v 0.1)
+  (goal (fill with the project-level objective))
+  (state
+    (owner misato)
+    (status pending)
+    (runs))            ; one (run <task-id> (worktree path) (stage <role>) (status ...)) per in-flight run
+  (facts)              ; task split + dependency graph: (task <id> (paths ...) (depends-on ...))
+  (decisions)          ; routing per task: (choose (route <id> full-pipeline)) (because (complexity high))
+  (open)               ; pending merges and conflicts
+  (blockers)           ; aggregated PENDING human items across runs
+  (next
+    (do (dispatch or collect runs))
+    (done when (all runs merged or parked with reasons))))
 ```
 
 ---
@@ -268,7 +257,7 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 Misato gives you your run directory at dispatch. In parallel mode that is `powerpuff/runs/<task-id>/`; in single-task mode the canonical paths below apply.
 
-1. Your handoff - `powerpuff/runs/<task-id>/blossom-handoff.md` (parallel) or `powerpuff/blossom/handoff.md` (single-task)
+1. Your handoff - `powerpuff/runs/<task-id>/blossom-handoff.koto` (parallel) or `powerpuff/blossom/handoff.koto` (single-task)
 2. `openspec/changes/` - active OpenSpec changes
 3. `openspec/specs/` - system specifications
 4. Your `scope.md` - `powerpuff/runs/<task-id>/scope.md` (parallel) or `powerpuff/task/scope.md` (single-task)
@@ -284,7 +273,7 @@ Misato gives you your run directory at dispatch. In parallel mode that is `power
 ## You Must Not
 
 - Write to `openspec/specs/` directly - specs are updated through OpenSpec changes
-- Change `PENDING` to `APPROVE` in `powerpuff/human-todo.md`
+- Resolve TODOs in `powerpuff/human-todo.md` - only the human changes `PENDING` to a final response
 - Perform implementation work
 - Modify project files outside `powerpuff/` and `openspec/`
 
@@ -300,29 +289,21 @@ Update your handoff file with:
 
 ---
 
-### `powerpuff/blossom/handoff.md`
+### `powerpuff/blossom/handoff.koto`
 
-```markdown
-# Blossom Handoff
-
-**Role:** Planner
-**Last Updated:** -
-
-## Current Task
-
-<!-- Which OpenSpec change is active. e.g. openspec/changes/add-dark-mode/ -->
-
-## Status
-
-<!-- What has been planned, what is pending. Confirm the I/O contract + verification items are written. -->
-
-## Open Questions
-
-<!-- Unresolved decisions or blockers needing human or Test/Review input. -->
-
-## Notes for Next Session
-
-<!-- Key context for the next Planner session to pick up from. -->
+```lisp
+(kotodute
+  (v 0.1)
+  (goal (fill with the active task outcome))
+  (state
+    (owner blossom)
+    (status pending)   ; pending / planning / scope-ready
+    (change none))     ; e.g. (change openspec/changes/add-dark-mode)
+  (facts)              ; what has been planned; confirm io contract + verification items are in scope.md
+  (open)               ; unresolved decisions needing human or test-review input
+  (next
+    (do (read openspec changes and draft scope))
+    (done when (scope defines the io contract and verification items))))
 ```
 
 ---
@@ -350,7 +331,7 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 Misato gives you your run directory at dispatch. In parallel mode that is `powerpuff/runs/<task-id>/`; in single-task mode the canonical paths below apply.
 
-1. Your handoff - `powerpuff/runs/<task-id>/bubbles-handoff.md` (parallel) or `powerpuff/bubbles/handoff.md` (single-task)
+1. Your handoff - `powerpuff/runs/<task-id>/bubbles-handoff.koto` (parallel) or `powerpuff/bubbles/handoff.koto` (single-task)
 2. Your `scope.md` - `powerpuff/runs/<task-id>/scope.md` (parallel) or `powerpuff/task/scope.md` (single-task)
 3. `openspec/changes/<active-change>/tasks.md` - implementation checklist
 4. `openspec/changes/<active-change>/design.md` - technical approach
@@ -367,8 +348,8 @@ Misato gives you your run directory at dispatch. In parallel mode that is `power
 ## You Must Not
 
 - Write to paths listed under `denied_paths` in `scope.md`
-- Run dangerous operations listed in `scope.md` without a valid committed human approval
-- Change `PENDING` to `APPROVE` in `powerpuff/human-todo.md`
+- Run human-only (deny tier) operations yourself, or retry an ask-tier operation after the human denied the prompt
+- Resolve TODOs in `powerpuff/human-todo.md` - only the human changes `PENDING` to a final response
 - Expand your own scope
 
 ## Definition of Done
@@ -379,20 +360,15 @@ Before handing off, you must:
 - **Self-test against Blossom's verification spec and confirm all green.** If the spec's acceptance criteria are mechanically executable tests, run them; if any fail, fix the implementation before handing off.
 - Leave the working tree clean of unrelated changes
 
-## Dangerous Operations
+## Operation Tiers
 
-If you need to perform a dangerous operation:
+Operations follow the three-tier model. The ask tier is enforced by your Vibe TOML (`[tools.bash] permission = "ask"`); task-specific entries live in `scope.md`:
 
-1. Stop immediately.
-2. Add a PENDING TODO to `powerpuff/human-todo.md` with the exact command or action needed.
-3. Note the blocker in your handoff file.
-4. Do not proceed until a human has committed an approval.
+- **allow** - normal work. Just do it.
+- **ask (medium risk)** - attempt the operation normally. The harness prompts the human; the human's answer at the prompt **is** the approval - no TODO, no ceremony. In an unattended or fan-out run where no prompt can reach a human, add a PENDING TODO to `powerpuff/human-todo.md` (prefix the id with `<task-id>` in parallel mode) and continue with unaffected work.
+- **deny (high risk / human-only)** - never attempt these: git push, destructive git, deploys, secrets, CI/CD, mass deletion, public API changes. Add a TODO with the exact command, why, and how completion can be verified; note the blocker in your handoff; continue with unaffected work or return.
 
-A valid approval means:
-- The TODO exists in `human-todo.md` with response `APPROVE`
-- The approval is committed to Git by a human
-- The commit only modifies `powerpuff/human-todo.md`
-- The commit message contains **no AI-author attribution** of any kind - reject the approval if the commit has any `Co-authored-by:` trailer naming an assistant (Claude, Vibe, Mistral, GPT, Copilot, etc.), any "Generated with"/"Co-authored with" AI attribution, or similar machine-author markers
+After a human resolves a TODO, verify the resulting **environment state** (lockfile changed, package importable, branch on remote) - never treat the TODO text alone as proof.
 
 ## End of Session
 
@@ -407,37 +383,24 @@ Update your handoff file with:
 
 ---
 
-### `powerpuff/bubbles/handoff.md`
+### `powerpuff/bubbles/handoff.koto`
 
-```markdown
-# Bubbles Handoff
-
-**Role:** Executor
-**Last Updated:** -
-
-## Current Task
-
-<!-- Which OpenSpec change is active. e.g. openspec/changes/add-dark-mode/ -->
-
-## Completed
-
-<!-- Tasks completed this session. Reference tasks.md items. -->
-
-## Files Changed
-
-<!-- List of modified files. -->
-
-## Self-Test Results
-
-<!-- Which verification items / criteria you ran against the spec, and the result. -->
-
-## Blockers
-
-<!-- Pending human approvals or other blockers. -->
-
-## Notes for Buttercup
-
-<!-- What Buttercup should check. -->
+```lisp
+(kotodute
+  (v 0.1)
+  (goal (fill with the active task outcome))
+  (state
+    (owner bubbles)
+    (status pending)   ; pending / in-progress / self-tested / blocked
+    (change none)      ; e.g. (change openspec/changes/add-dark-mode)
+    (artifacts))       ; one (file path) per modified file
+  (facts)              ; completed tasks.md items + self-test results per verification item, each with (evidence ...)
+  (assumptions)        ; provisional beliefs used during implementation
+  (blockers)           ; pending human TODOs, reference their ids
+  (open)               ; what Buttercup should check
+  (next
+    (do (read scope and execute the checklist))
+    (done when (all checklist items implemented and self-tests green))))
 ```
 
 ---
@@ -467,13 +430,13 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 Misato gives you your run directory at dispatch. In parallel mode that is `powerpuff/runs/<task-id>/`; in single-task mode the canonical paths below apply.
 
-1. Your handoff - `powerpuff/runs/<task-id>/buttercup-handoff.md` (parallel) or `powerpuff/buttercup/handoff.md` (single-task)
+1. Your handoff - `powerpuff/runs/<task-id>/buttercup-handoff.koto` (parallel) or `powerpuff/buttercup/handoff.koto` (single-task)
 2. Your `scope.md` - `powerpuff/runs/<task-id>/scope.md` (parallel) or `powerpuff/task/scope.md` (single-task)
-3. Bubbles' handoff - `powerpuff/runs/<task-id>/bubbles-handoff.md` (parallel) or `powerpuff/bubbles/handoff.md` (single-task)
+3. Bubbles' handoff - `powerpuff/runs/<task-id>/bubbles-handoff.koto` (parallel) or `powerpuff/bubbles/handoff.koto` (single-task)
 4. `openspec/changes/<active-change>/` - proposal, design, tasks, specs
 5. `openspec/specs/` - system spec (check for regressions)
-6. `powerpuff/human-todo.md` - verify approvals are valid
-7. Git log - verify approval commit authorship
+6. `powerpuff/human-todo.md` - check resolved TODOs against actual environment state
+7. Git history of this run's `scope.md` - verify it did not change during execution
 
 ## You May
 
@@ -489,9 +452,7 @@ Misato gives you your run directory at dispatch. In parallel mode that is `power
 
 - Edit implementation / source files - you are read-only on everything except the tests you author
 - Silently fix implementation issues - flag them, stop, and request changes
-- Accept uncommitted human approvals
-- Accept approval commits with any AI-author attribution (see check below)
-- Accept approval commits that also modify implementation files
+- Treat the text of `human-todo.md` as proof - verify the actual environment state for resolved TODOs
 - Write to `openspec/specs/` directly
 
 ## Review Checklist
@@ -500,9 +461,9 @@ Misato gives you your run directory at dispatch. In parallel mode that is `power
 - [ ] Ran the tests against Bubbles' finished work; recorded pass/fail
 - [ ] Executor stayed within `allowed_paths`
 - [ ] Executor avoided `denied_paths`
-- [ ] Dangerous operations have valid committed human approvals
-- [ ] Approval commits have **no AI-author attribution** - no `Co-authored-by:` trailer naming an assistant (Claude, Vibe, Mistral, GPT, Copilot, etc.), no "Generated with"/"Co-authored with" AI attribution, no similar machine-author markers
-- [ ] Approval commits only modified `powerpuff/human-todo.md`
+- [ ] `scope.md` frozen during execution: git history shows no change to this run's `scope.md` after implementation began
+- [ ] No human-only (deny tier) operation was performed by an agent - any lockfile change, pushed branch, or similar trace must match a `DONE` TODO in `powerpuff/human-todo.md`
+- [ ] Resolved TODOs match the actual environment state
 - [ ] Implementation matches `tasks.md` checklist
 - [ ] Output matches `openspec/specs/` - no regressions
 - [ ] No unrelated changes introduced
@@ -529,33 +490,21 @@ Update your handoff file with:
 
 ---
 
-### `powerpuff/buttercup/handoff.md`
+### `powerpuff/buttercup/handoff.koto`
 
-```markdown
-# Buttercup Handoff
-
-**Role:** Test / Review
-**Last Updated:** -
-
-## Current Task
-
-<!-- Which OpenSpec change is active. e.g. openspec/changes/add-dark-mode/ -->
-
-## Review Status
-
-<!-- APPROVED / CHANGES_REQUESTED / BLOCKED -->
-
-## Tests & Results
-
-<!-- Tests implemented from the spec, and pass/fail for each. -->
-
-## Issues Found
-
-<!-- List of issues. Flag, do not fix. -->
-
-## Notes for Next Session
-
-<!-- Key context for the next Test/Review session to pick up from. -->
+```lisp
+(kotodute
+  (v 0.1)
+  (goal (fill with the active task outcome))
+  (state
+    (owner buttercup)
+    (status pending)   ; pending / approved / changes-requested / blocked
+    (change none))     ; e.g. (change openspec/changes/add-dark-mode)
+  (facts)              ; tests implemented from the spec + pass/fail, each with (evidence ...)
+  (open)               ; issues found - flag, do not fix
+  (next
+    (do (implement tests from the spec and run them))
+    (done when (verdict recorded with evidence))))
 ```
 
 ---
@@ -614,25 +563,29 @@ git diff
 # add others as needed
 ```
 
-## Dangerous Operations
+## Operation Tiers
 
-Operations that require a committed human approval before Bubbles may proceed:
+### Ask (medium risk - the harness prompts the human; the answer is the approval)
 
-- install or remove packages
-- modify lockfiles
-- network access
-- modify CI/CD
-- modify secrets or environment files
-- git push
-- git reset --hard
-- database migrations
+- install or remove dev dependencies / modify lockfiles
+- local database migrations
+<!-- add task-specific items -->
+
+### Human-only (deny - agents never execute these; they go through human-todo.md and a human runs them personally)
+
+- git push, git reset --hard, destructive git
 - production deploys
+- modify secrets or environment files
+- modify CI/CD
+- network access for project-changing work
 - delete many files
 - change public API
 
-> Misato mirrors `Denied Paths`, the dangerous-command list, and network limits into the
-> spawned subagent's `.vibe/agents/<role>.toml` (`enabled_tools` whitelist + per-tool
-> permissions) - defense in depth. This section is not enforced by prompt honour alone.
+> Misato mirrors `Denied Paths` and these tiers into the spawned subagent's
+> `.vibe/agents/<role>.toml` (`enabled_tools` whitelist + per-tool permissions) - defense
+> in depth. Keep push keys and signing keys out of the agents' environment (hardware key
+> or an SSH agent that prompts per use): credential isolation is what makes the human-only
+> tier real, not the prompt text.
 
 ## Notes
 ````
@@ -644,34 +597,31 @@ Operations that require a committed human approval before Bubbles may proceed:
 ````markdown
 # Human TODO
 
-This is the only human approval surface for the Powerpuff agent workflow.
+This is the human-execution surface for the Powerpuff agent workflow.
 
-Edit this file directly and commit it manually to approve, reject, or defer an item.
-An approval is only valid after it is committed to Git without AI-author attribution.
+Operations follow a three-tier model:
+
+- **ask tier (medium risk)** - in interactive sessions the harness prompts you directly; answering the prompt is the approval and no TODO is needed. Items land here only when no human was present to answer (e.g. unattended fan-out runs).
+- **deny tier (high risk / irreversible)** - agents can never run these. The agent writes the exact command here, and **you run it yourself in a regular terminal** (outside any agent session), then record the result.
+
+There is no approval-commit ceremony: agents have no capability to run these operations, so there is nothing to forge.
 
 ## How to respond
 
-Find the TODO, replace `PENDING` with your response, then commit:
+For a deny-tier TODO: run the command yourself, replace `PENDING` with the result, and move the item to Resolved.
 
-```bash
-git add powerpuff/human-todo.md
-git commit -m "Approve TODO-001"
-```
+For an ask-tier TODO left over from an unattended run: either run it yourself (record `DONE`), or re-run the task interactively and answer the prompt when it re-triggers.
 
 Valid responses:
 
 ```
-APPROVE
+DONE <what you ran and the result>
 REJECT <direction>
 ASK <question or direction>
 DEFER <optional note>
 ```
 
-The commit must contain **no AI-author attribution** of any kind - no `Co-authored-by:`
-trailer naming an assistant (Claude, Vibe, Mistral, GPT, Copilot, etc.), no
-"Generated with"/"Co-authored with" AI attribution, and no similar machine-author marker.
-The commit should only modify `powerpuff/human-todo.md`.
-Run these git commands in a regular terminal, not inside an agent session.
+Each TODO is one-time and bound to the plan state it cites. Agents verify the resulting environment state (lockfile changed, package importable, branch on remote), not this file's text.
 
 In parallel mode, TODO ids are prefixed with the run's `<task-id>` (e.g. `TODO-<task-id>-001`)
 to avoid collisions between concurrent runs. Misato aggregates PENDING items across runs and
@@ -683,26 +633,30 @@ presents them to you in one batch.
 
 <!-- Agents add new TODOs here. Example:
 
-### TODO-001 - Approve dependency install
+### TODO-001 - Push feature branch
 
-- Type: operation-approval
-- Risk: medium
+- Tier: deny (human-only)
 - Task: openspec/changes/auth-test-fix/
 - Requested by: Bubbles
-- Blocks: Bubbles
+- Blocks: review handoff
 - Created: YYYY-MM-DD
+- Plan state: <commit SHA of the scope.md / plan this request belongs to>
 
-#### Request
+#### Command
 
-Run once:
+Run in a regular terminal:
 
 ```bash
-npm install msw --save-dev
+git push -u origin feature/auth-test-fix
 ```
 
 #### Why
 
-Auth tests require request mocking.
+Review happens from the remote branch.
+
+#### How the agent verifies completion
+
+`git ls-remote origin feature/auth-test-fix` returns the branch.
 
 #### Human Response
 
@@ -718,6 +672,12 @@ PENDING
 ````
 
 ---
+
+### `powerpuff/kotodute.md` and `powerpuff/scripts/koto-check.py`
+
+Role handoffs use the Kotodute S-expression format. Create both files exactly as defined in **`powerpuff.md` Step 4** (single source; do not maintain a diverging copy here): `powerpuff/kotodute.md` is the protocol card every role reads, `powerpuff/scripts/koto-check.py` is the structural validator.
+
+Roles with bash (Bubbles, Buttercup, Misato) validate their handoff before returning. Blossom has no bash - Misato validates Blossom's handoff on collection.
 
 ### `powerpuff/archive/.gitkeep`
 
@@ -807,7 +767,7 @@ description = "Planner subagent. Writes the I/O contract and verification items 
 system_prompt_id = "blossom"
 safety = "safe"
 
-# Read project + openspec; write only into powerpuff/ (scope.md, handoff.md). No bash.
+# Read project + openspec; write only into powerpuff/ (scope.md, handoff.koto). No bash.
 enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace"]
 
 [tools.write_file]
@@ -828,7 +788,7 @@ You are an implementation-focused subagent. Implement against Blossom's spec, ke
 
 Implement against the spec, self-test against Blossom's verification items, then return a one-paragraph status to Misato. Rich state (files changed, test results, blockers) goes into your handoff file.
 
-If you hit a dangerous operation, stop immediately, add a PENDING TODO to `powerpuff/human-todo.md`, note it in your handoff, and return - do not proceed without a committed human approval.
+Ask-tier operations (e.g. installing dev dependencies) may be attempted normally - the harness prompt to the human is the approval. If you hit a human-only (deny tier) operation, add a PENDING TODO to `powerpuff/human-todo.md` with the exact command, note it in your handoff, and return - a human will run it personally.
 
 Your operating persona is loosely inspired by Bubbles from The Powerpuff Girls: kind, upbeat, attentive, brave when it counts, and surprisingly capable at getting delicate work right. You bring warmth without losing rigor, notice small details, and keep the implementation humane, tidy, and testable. You are cheerful, but you do not hand-wave failures or hide uncertainty.
 
@@ -872,7 +832,7 @@ You are a testing and review subagent. Implement Blossom's verification items as
 
 You are read-only on implementation. Do not silently fix Bubbles' code, change product files, broaden the implementation, or perform cleanup in the worktree. If you find an issue, capture the failing evidence, explain the smallest required fix, and request changes.
 
-If you hit a dangerous operation, stop immediately, add a PENDING TODO to `powerpuff/human-todo.md`, note it in your handoff, and return - do not proceed without a committed human approval.
+Ask-tier operations (e.g. installing dev dependencies) may be attempted normally - the harness prompt to the human is the approval. If you hit a human-only (deny tier) operation, add a PENDING TODO to `powerpuff/human-todo.md` with the exact command, note it in your handoff, and return - a human will run it personally.
 
 Your operating persona is loosely inspired by Buttercup from The Powerpuff Girls: blunt, fearless, skeptical, loyal to the team, and allergic to sloppy work. You test assumptions hard, report failures plainly, and care more about correctness than comfort. Be tough on the code, not careless with people.
 
@@ -930,6 +890,8 @@ Create the directory for Claude Code in the project root if it does not exist.
 ```bash
 mkdir -p .claude/commands
 ```
+
+Also create the enforcement layer for the Claude Code / OpenCode surface - `.claude/settings.json` (allow / ask / deny permission tiers) and `.claude/hooks/powerpuff-guard.sh` - exactly as defined in **`powerpuff.md` Step 5** (single source; do not maintain a diverging copy here). Inside Vibe, the same tiers are enforced by the per-role TOMLs (`permission = "ask"` on bash); the settings + hook cover sessions started through Claude Code / OpenCode.
 
 Then create the following files for Claude Code:
 
@@ -1051,7 +1013,7 @@ done
 
 The OpenCode links point back to `.claude/commands/` so Claude Code and OpenCode share the same command definitions.
 
-If a command file already exists in `.opencode/commands/` and is not a symlink, do not overwrite it automatically. Report it as an issue in Step 7.
+If a command file already exists in `.opencode/commands/` and is not a symlink, do not overwrite it automatically. Report it as an issue in Step 8.
 
 ---
 
@@ -1062,8 +1024,9 @@ After completing all steps, report:
 - OpenSpec version installed (or whether it was missing)
 - Whether `openspec/` exists in the project root
 - Vibe CLI version (or whether it was missing)
-- List of directories and files created under `powerpuff/` (including `misato/` and `runs/`)
+- List of directories and files created under `powerpuff/` (including `misato/`, `runs/`, `kotodute.md`, `scripts/koto-check.py`, and the `handoff.koto` files)
 - List of `.vibe/agents/*.toml` and `.vibe/prompts/*.md` files created
+- Whether `.claude/settings.json` and `.claude/hooks/powerpuff-guard.sh` were created (enforcement layer, per `powerpuff.md` Step 5)
 - List of `.claude/commands/` files created
 - List of `.opencode/commands/` symlinks created or skipped
 - A reminder to run the **deploy-time security test** (Step 4, Misato dispatch) once before relying on parallel fan-out

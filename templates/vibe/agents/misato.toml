@@ -1,0 +1,20 @@
+agent_type = "agent"
+display_name = "Misato"
+description = "Orchestrator / Router for the Powerpuff workflow. Splits work, routes by complexity, dispatches Blossom / Bubbles / Buttercup as subagents."
+system_prompt_id = "misato"
+safety = "neutral"
+
+# Misato reads, plans, dispatches, and seeds run namespaces (scope.md, run dir).
+enabled_tools = ["read_file", "grep", "list_dir", "write_file", "search_replace", "bash", "task"]
+
+[tools.task]
+permission = "always"
+
+[tools.write_file]
+permission = "always"
+
+[tools.search_replace]
+permission = "always"
+
+[tools.bash]
+permission = "ask"
