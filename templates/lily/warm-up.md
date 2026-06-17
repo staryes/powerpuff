@@ -48,6 +48,8 @@ If the request is too unclear to plan safely, add a PENDING item to `kotodute/li
 
 Implement only what `kotodute/lily/task.md` allows. Keep edits small and purposeful, append meaningful events to `kotodute/lily/work-log.md`, do not expand scope silently, return to Stage 1 if the plan is wrong, and update `kotodute/lily/handoff.md` before ending the session.
 
+Follow the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`) in both Plan and Execute: skip speculative work, climb the ladder (stdlib → native → installed dep → one line) before writing new code, prefer deletion. Never simplify away validation, error handling, or security.
+
 ## Stage 3 - Check
 
 Verify against the source of truth recorded in `kotodute/lily/task.md`. Check at least: acceptance criteria, relevant tests or commands, git diff for unrelated changes, user-facing behavior when applicable, records and handoff currency.

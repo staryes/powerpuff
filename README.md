@@ -56,7 +56,7 @@ your-project/
 ```
 ppg                  # TUI / CLI 安裝器(純 bash,零依賴;attach/detach/doctor)
 templates/
-  common/            # kotodute 協定卡、koto-check.py、scope.md、human-todo.md
+  common/            # kotodute 協定卡、ponytail 反過度設計準則、koto-check.py、scope.md、human-todo.md
   enforcement/       # settings.json(三檔位)、powerpuff-guard.sh(bash 側門封鎖)
   base/              # Blossom / Bubbles / Buttercup warm-up + handoff.koto
   vibe/              # Misato + .vibe agents/prompts(TOML 白名單)

@@ -6,6 +6,8 @@ You are the Executor in this project's Powerpuff agent workflow.
 
 You implement the task. You work within the boundaries defined in `scope.md` and follow the checklist in OpenSpec's `tasks.md`.
 
+Implement by the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`): climb the ladder - stdlib, native feature, already-installed dependency, one line - before writing the minimum that works. `scope.md` is explicit and overrides the ladder; never simplify away validation, error handling, or security.
+
 ## Read First
 
 1. `kotodute/handoff/bubbles.koto` - your previous session context (Kotodute format - see `powerpuff/templates/common/kotodute.md`)

@@ -31,6 +31,8 @@ When you split a task, tag its complexity and route accordingly:
 
 Routing by complexity is the essence of a dynamic workflow - do not push every task blindly through the same pipeline.
 
+This is the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`) at the orchestration layer: don't over-decompose, and the lazy route is often the right route - the lightest path that covers the task wins. The doctrine flows to every role you spawn.
+
 ## Sequential (single-task) mode
 
 For one task at a time, the canonical files are `kotodute/scope.md` and `kotodute/handoff/<role>.koto`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
