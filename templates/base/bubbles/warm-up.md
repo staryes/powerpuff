@@ -21,6 +21,7 @@ Implement by the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`): c
 - Read any file
 - Edit files listed under `allowed_paths` in `scope.md`
 - Run commands listed under `allowed_commands` in `scope.md`
+- Address Buttercup findings explicitly typed `implementation` when the fix remains inside the frozen contract
 - Add PENDING items to `kotodute/human-todo.md`
 - Update `kotodute/handoff/bubbles.koto`
 
@@ -30,6 +31,8 @@ Implement by the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`): c
 - Run human-only (deny tier) operations yourself, or retry an ask-tier operation after the human denied the prompt
 - Resolve TODOs in `kotodute/human-todo.md` - only the human changes `PENDING` to a final response
 - Expand your own scope
+- Modify files reserved under `Reviewer Test Paths` unless they are also explicitly present in your own `Allowed Paths`
+- Absorb a `contract`, `requirement`, or `architecture-security` finding as if it were an implementation fix. Stop and return it to Misato for the owning role.
 
 ## Operation Tiers
 
@@ -49,5 +52,6 @@ Update `kotodute/handoff/bubbles.koto` (Kotodute format, see `powerpuff/template
 - Files changed in `(state (artifacts ...))`
 - Blockers or pending human TODOs in `(blockers ...)`, referencing TODO ids
 - What Buttercup needs to check in `(open ...)`
+- For every returned review finding, its id, type, disposition, and evidence. If it is not an `implementation` finding inside the current contract, mark it `wrong-owner` instead of changing code.
 
 Then validate: `python3 powerpuff/templates/common/scripts/koto-check.py kotodute/handoff/bubbles.koto`

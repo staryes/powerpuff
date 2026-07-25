@@ -20,13 +20,14 @@ You may perform all three stages in one session when the task is small and safe.
 
 Lily is deliberately lightweight. Escalate instead of stretching this workflow when the task requires broad system exploration, adversarial security reasoning, difficult root-cause analysis, cross-subsystem changes, migration or public-contract decisions, or work whose risk and uncertainty no longer fit a small bounded change.
 
-Escalation is a sequential takeover, not collaboration in parallel:
+Escalation is a two-approval sequential takeover, not collaboration in parallel:
 
-1. Finish Stage 1 only. Freeze the goal, acceptance criteria, `Allowed Files / Areas`, denied areas, exact `Allowed Commands`, risks, and check plan in `kotodute/lily/task.md`.
+1. Finish Stage 1 only. Freeze the problem, acceptance criteria, evidence already gathered, initial investigation leads, hard denied areas, risks, and check intent in `kotodute/lily/task.md`. Do not pretend Lily already knows the final files or commands when deeper reconnaissance is the reason for escalation.
 2. Update `kotodute/lily/handoff.md` with status `AWAITING_MOTOKO_APPROVAL`, why the task is too large for Lily, evidence gathered, and the recommended takeover mission.
-3. Ask the user to approve by personally running `/motoko-takeover` in Pi. Do not call `powerpuff_dispatch` yourself and do not continue implementation.
-4. If the user approves, the command issues a one-time token and Pi starts Motoko with the strong configured model. Lily remains stopped while Motoko investigates, implements, and verifies.
-5. If the user rejects or defers, record the decision and remain stopped or re-scope the task with the user.
+3. Ask the user to approve reconnaissance by personally running `/motoko-takeover` in Pi. Do not call `powerpuff_dispatch` yourself and do not continue implementation.
+4. The first approval starts Motoko with broad non-secret project read access but no product-file writes or bash. Motoko investigates and writes the evidence-backed execution proposal to `kotodute/lily/motoko-scope.md`, then sets the handoff to `AWAITING_MOTOKO_EXECUTION_APPROVAL`.
+5. The user reviews that proposal and personally runs `/motoko-execute` to grant a second, one-use approval. Only then may Motoko modify the proposed allowed files and run the proposed exact commands.
+6. If the user rejects or defers either stage, record the decision and remain stopped or re-scope the task with the user.
 
 Never mark a routine inconvenience as an escalation. First narrow the task and use the normal Plan / Execute / Check flow. Escalate only when stronger system-level judgment or a broader first-line investigation is materially necessary.
 
@@ -36,7 +37,8 @@ Never mark a routine inconvenience as an escalation. First narrow the task and u
 2. `kotodute/lily/task.md` - current lightweight task packet
 3. `kotodute/lily/work-log.md` - chronological record of recent work
 4. `kotodute/lily/human-todo.md` - pending human decisions or approvals
-5. Project files relevant to the user's request
+5. `kotodute/lily/motoko-scope.md` - Motoko's reconnaissance result and proposed execution boundary, when escalation is active
+6. Project files relevant to the user's request
 
 If OpenSpec exists in the project, read the relevant files under `openspec/changes/` and `openspec/specs/` when the task appears connected to an OpenSpec change. This lightweight workflow does not require OpenSpec.
 
@@ -62,7 +64,7 @@ If the request is too unclear to plan safely, add a PENDING item to `kotodute/li
 
 Implement only what `kotodute/lily/task.md` allows. Keep edits small and purposeful, append meaningful events to `kotodute/lily/work-log.md`, do not expand scope silently, return to Stage 1 if the plan is wrong, and update `kotodute/lily/handoff.md` before ending the session.
 
-Do not enter Stage 2 after writing `AWAITING_MOTOKO_APPROVAL`. At that point Lily's turn is over; only the user's `/motoko-takeover` command may start Motoko.
+Do not enter Stage 2 after writing `AWAITING_MOTOKO_APPROVAL`. At that point Lily's turn is over; only the user's `/motoko-takeover` and later `/motoko-execute` commands may advance the takeover.
 
 Follow the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`) in both Plan and Execute: skip speculative work, climb the ladder (stdlib → native → installed dep → one line) before writing new code, prefer deletion. Never simplify away validation, error handling, or security.
 
@@ -94,6 +96,7 @@ After the human resolves a TODO, verify the resulting environment state, not the
 - `kotodute/lily/work-log.md` is chronological and append-only for completed events.
 - `kotodute/lily/handoff.md` is short and current.
 - `kotodute/lily/human-todo.md` is only for human decisions, commands, and blockers.
+- `kotodute/lily/motoko-scope.md` is written by Motoko during reconnaissance and becomes the immutable execution contract after `/motoko-execute`.
 - `kotodute/lily/archive/` stores completed task snapshots when the project wants history.
 - Do not create project-level documents such as `SPEC.md` or `DESIGN.md` unless the user explicitly asks.
 

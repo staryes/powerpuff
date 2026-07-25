@@ -61,6 +61,9 @@ git diff
 
 - Required: No
 - Reason:
-- Approved only by: user-invoked `/motoko-takeover`
+- Initial Investigation Leads:
+- Hard Safety Boundary:
+- Reconnaissance approved only by: user-invoked `/motoko-takeover`
+- Execution approved only by: user-invoked `/motoko-execute` after reviewing `motoko-scope.md`
 
 ## Notes

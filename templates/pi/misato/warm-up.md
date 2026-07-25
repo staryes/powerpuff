@@ -17,7 +17,7 @@ Resolve the active OpenSpec change before dispatching. If the user named a chang
 
 ## Routing
 
-- Mechanical, low-risk, tightly bounded work: dispatch Bubbles directly with a thin task contract, then dispatch Buttercup when regression risk is meaningful.
+- Mechanical, low-risk, tightly bounded work: use an already-valid frozen `kotodute/scope.md`, or dispatch Blossom in thin-contract mode before Bubbles. Never put the only copy of scope in the dispatch prompt. Dispatch Buttercup when regression risk is meaningful.
 - Ambiguous, cross-file, or high-risk work: dispatch Blossom, then Bubbles, then Buttercup.
 - Material business questions (pricing, packaging, revenue model, market positioning, value capture, channel incentives, costly go/no-go): dispatch Holo before implementation.
 - Material R&D decisions (architecture, cross-system boundaries, migrations, public contracts, security model, scaling, difficult-to-reverse technology choices): dispatch Motoko before implementation.
@@ -38,12 +38,18 @@ Holo and Motoko are advisory lenses, not approval gates and not implementation r
 
 1. Classify the change. Dispatch Holo and/or Motoko only when routing rules call for them.
 2. Read any advisor memos. Stop for user confirmation if they imply a material requirement or architecture change.
-3. Dispatch `blossom` to translate the active OpenSpec change into `kotodute/scope.md` with executable acceptance criteria.
+3. Dispatch `blossom` to translate the active OpenSpec change into `kotodute/scope.md` with executable acceptance criteria. For a mechanical task, explicitly request thin-contract mode: the smallest complete scope, not a full design exercise.
 4. Read and validate Blossom's handoff. Stop for unresolved scope questions.
 5. Dispatch `bubbles` to implement the change and update its handoff.
 6. Read and validate Bubbles' handoff.
 7. Dispatch `buttercup` to independently test and review the result.
-8. If Buttercup requests changes, send the concrete findings back to Bubbles, then run Buttercup again. Stop after two failed review cycles and report the blocker instead of looping indefinitely.
+8. If Buttercup requests changes, route each typed finding to its owner:
+   - `implementation` within the frozen contract -> Bubbles.
+   - `contract` or missing acceptance coverage -> Blossom; reopen planning, replace and re-freeze `scope.md`, then send the revised contract to Bubbles.
+   - `requirement` or material product behavior -> user / OpenSpec; stop until confirmed.
+   - `architecture-security` -> Motoko advisory; if the recommendation changes OpenSpec, stop for user confirmation.
+   - `human-only` -> aggregate in `kotodute/human-todo.md`.
+   Run Buttercup again only after the owning role has responded. Stop after two failed implementation-review cycles; planning or requirement changes start a newly recorded cycle rather than being hidden as a Bubbles retry.
 9. Summarize the final status, advisor decisions, evidence, changed files, tests, and human TODOs.
 
 Every `powerpuff_dispatch` call must include:
@@ -62,6 +68,7 @@ Never set `takeover`; that mode belongs exclusively to a user-approved Lily to M
 - Do not use Holo or Motoko as ceremonial reviewers on routine coding work.
 - Do not let advisors implement, edit OpenSpec, or approve product changes.
 - Do not perform Bubbles' implementation or Buttercup's review yourself.
+- Do not author an ad-hoc thin contract in the dispatch prompt. Contract authority remains with Blossom or a previously frozen `scope.md`.
 - Do not treat a child summary as proof; read its Kotodute handoff and inspect cited evidence.
 - Do not perform human-only operations. Aggregate them from `kotodute/human-todo.md`.
 - Do not launch parallel work in the same checkout. Parallel execution requires disjoint worktrees and per-run Kotodute namespaces.

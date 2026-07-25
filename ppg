@@ -13,7 +13,7 @@
 set -eu
 
 PPG_ROOT=$(cd "$(dirname "$0")" && pwd)
-VERSION="0.3.1"
+VERSION="0.4.0"
 
 BOLD=$'\033[1m'; DIM=$'\033[2m'; REV=$'\033[7m'; RESET=$'\033[0m'
 GREEN=$'\033[32m'; YELLOW=$'\033[33m'; CYAN=$'\033[36m'
@@ -256,7 +256,7 @@ install_state() {
   if has_word lily "$GIRLS"; then
     mkdir -p "$st/lily/archive"
     local f
-    for f in task.md work-log.md handoff.md human-todo.md; do
+    for f in task.md work-log.md handoff.md human-todo.md motoko-scope.md; do
       copy_into "templates/lily/$f" "kotodute/lily/$f"
     done
     : > "$st/lily/archive/.gitkeep"
@@ -384,7 +384,7 @@ description: Powerpuff $title (motoko) - advisory analysis or user-approved Lily
 You are Motoko in this project's Powerpuff workflow.
 Read \`powerpuff/personas/motoko.md\` and follow its instructions.
 Under Misato you are advisory-only and write \`kotodute/advice/motoko.md\`.
-Under Lily you may act only after the user invokes \`/motoko-takeover\`; then take over sequentially, solve the frozen task directly, and update Lily's work log and handoff.
+Under Lily you may act only through the two-stage user approval flow: \`/motoko-takeover\` grants broad read-only reconnaissance, then \`/motoko-execute\` grants execution inside the reviewed \`kotodute/lily/motoko-scope.md\`. Update Lily's work log and handoff in both stages.
 SKILL
       fi
       record file "$rel"
@@ -402,12 +402,12 @@ description: Lightweight Magilumiere workflow (Aoi Riri) - plan, execute, check 
 You are 葵 リリー (Aoi Rirī) in this project's lightweight Magilumiere workflow.
 Read `powerpuff/templates/lily/warm-up.md` and follow its instructions.
 The working dir is `./kotodute/lily/`. Arguments may name the stage: plan / exec / check.
-If the task is too large for this lightweight workflow, freeze the task packet, stop with AWAITING_MOTOKO_APPROVAL, and ask the user to run `/motoko-takeover`. Never dispatch Motoko without that command.
+If the task is too large for this lightweight workflow, freeze the problem and hard safety boundary, stop with AWAITING_MOTOKO_APPROVAL, and ask the user to run `/motoko-takeover`. Motoko then proposes an evidence-backed scope; only the user's later `/motoko-execute` may grant execution. Never dispatch Motoko yourself.
 SKILL
       record file "$rel"
     fi
   fi
-  note "pi: per-role models + orchestration extension (/ppg-run, /motoko-takeover)"
+  note "pi: per-role models + orchestration extension (/ppg-run, /motoko-takeover, /motoko-execute)"
 }
 
 finalize_clean() {

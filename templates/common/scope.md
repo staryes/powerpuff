@@ -31,6 +31,13 @@ is decided by the test rather than by judgement. Buttercup implements these inde
 # Files and directories Bubbles may modify
 ```
 
+## Reviewer Test Paths
+
+```text
+# Test-only files or isolated review artifacts Buttercup may create or modify.
+# Keep these separate from implementation paths whenever practical.
+```
+
 ## Denied Paths
 
 ```text
@@ -44,7 +51,15 @@ secrets/**
 ```text
 git status
 git diff
-# add others as needed
+# Exact, single commands Bubbles may run; add others as needed.
+```
+
+## Reviewer Commands
+
+```text
+git status
+git diff
+# Exact, single commands Buttercup may run independently.
 ```
 
 ## Operation Tiers

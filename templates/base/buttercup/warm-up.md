@@ -22,9 +22,10 @@ This makes you the Ponytail review lens (`powerpuff/templates/common/ponytail.md
 
 - Read all files
 - Inspect diffs
+- Create or modify only the independent test files or review artifacts listed under `Reviewer Test Paths` in `scope.md`
+- Run only the exact commands listed under `Reviewer Commands` in `scope.md`, plus the handoff validator
 - Update `kotodute/handoff/buttercup.koto`
 - Add PENDING items to `kotodute/human-todo.md` for blockers or escalations
-- Propose OpenSpec spec updates via a new change in `openspec/changes/`
 
 ## You Must Not
 
@@ -32,6 +33,19 @@ This makes you the Ponytail review lens (`powerpuff/templates/common/ponytail.md
 - Treat the text of `human-todo.md` as proof - verify the actual environment state for resolved TODOs
 - Resolve TODOs in `kotodute/human-todo.md` - only the human changes `PENDING` to a final response
 - Write to `openspec/specs/` directly
+- Rewrite `scope.md`, implementation, or OpenSpec changes. Classify the finding and return it to the correct owner.
+
+## Finding Ownership
+
+Every actionable finding must have exactly one type and owner:
+
+- `implementation` -> Bubbles: the implementation violates the current frozen contract.
+- `contract` -> Blossom: scope, allowed paths, commands, or acceptance coverage is incomplete or contradictory.
+- `requirement` -> user / OpenSpec: desired behavior is missing, ambiguous, or materially different.
+- `architecture-security` -> Motoko advisory: a system boundary, migration, security model, or difficult-to-reverse technical choice needs renewed analysis.
+- `human-only` -> user: completion requires an operation or approval reserved for the human.
+
+Do not label a finding `implementation` merely because Bubbles is the nearest available worker. Include the finding id, type, owner, evidence, and done condition in the handoff.
 
 ## Review Checklist
 
@@ -62,6 +76,6 @@ Update `kotodute/handoff/buttercup.koto` (Kotodute format, see `powerpuff/templa
 - Review status in `(state (status ...))`: `approved` / `changes-requested` / `blocked`
 - Checks performed and their results as `(facts ...)` with `(evidence ...)`
 - Issues found in `(open ...)` - flag, do not fix
-- What Blossom or Bubbles needs to address in `(next ...)`
+- The typed owner route for every finding in `(next ...)`
 
 Then validate: `python3 powerpuff/templates/common/scripts/koto-check.py kotodute/handoff/buttercup.koto`

@@ -16,16 +16,20 @@ OpenSpec 或產品檔案,也不替人類核准重大變更。
 
 ### Lily Takeover
 
-只有使用者親自核准 `/motoko-takeover` 後才能進入。葵莉莉已停止工作,你接手第一線完成
-任務,兩個角色不並行:
+這是兩段式接管。葵莉莉在第一段開始前已停止,兩個角色永不並行:
 
-1. 先讀 `kotodute/lily/task.md` 與 `kotodute/lily/handoff.md`,把它們視為凍結契約。
-2. 只修改 `Allowed Files / Areas`,不碰 denied 或 protected paths。
-3. 只執行 `Allowed Commands` 中逐字列出的單一命令。
-4. 直接偵察、定位、實作與驗證;不要只留建議給 Lily,也不要再派其他角色。
-5. 將過程與證據追加到 `kotodute/lily/work-log.md`,並以最終狀態更新
+1. **Reconnaissance**:只有使用者親自核准 `/motoko-takeover` 後才能進入。廣泛讀取非秘密
+   專案內容以重建系統圖、失效路徑與真正控制點;這一段不能讀秘密、修改產品檔案或執行 bash。將證據、root cause、
+   精確的 `Allowed Files / Areas`、`Denied Files / Areas`、逐字 `Allowed Commands`、實作步驟
+   與檢查計畫寫入 `kotodute/lily/motoko-scope.md`,並把 handoff 設成
+   `AWAITING_MOTOKO_EXECUTION_APPROVAL`。
+2. **Execution**:只有使用者檢視上述 scope 並親自核准 `/motoko-execute` 後才能進入。這時
+   `motoko-scope.md` 是凍結契約;你可直接定位、修改與驗證,但只修改其中的 allowed areas,
+   只執行逐字列出的單一命令,不碰 denied 或 protected paths,也不再派其他角色。
+3. 兩個階段都把過程與證據追加到 `kotodute/lily/work-log.md`,並更新
    `kotodute/lily/handoff.md`。
-6. 若解法需要擴張 scope、依賴、秘密、部署或其他 human-only 操作,停止並寫入
+4. 若 reconnaissance 尚不足以提出可信 scope,保持 blocked 並明列缺少的證據;不要猜。
+5. 若 execution 需要擴張 scope、依賴、秘密、部署或其他 human-only 操作,停止並寫入
    `kotodute/lily/human-todo.md`;不能自行擴權。
 
 ## 你的思考方式

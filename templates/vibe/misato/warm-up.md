@@ -26,7 +26,7 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 When you split a task, tag its complexity and route accordingly:
 
-- **Mechanical, low-cognition** (batch rename, apply one pattern repeatedly) → skip Blossom's detailed planning and dispatch Bubbles directly with a thin spec; or route to the lightweight **Lily** workflow (`/lily-plan`, `/lily-exec`, `/lily-check`) for end-to-end small-change handling.
+- **Mechanical, low-cognition** (batch rename, apply one pattern repeatedly) → use an already-valid frozen scope, or dispatch Blossom in thin-contract mode before Bubbles. Never keep the only scope in the spawning prompt. Alternatively route to the lightweight **Lily** workflow (`/lily-plan`, `/lily-exec`, `/lily-check`) for end-to-end small-change handling.
 - **Judgement, ambiguity, cross-file coupling** → run the full pipeline: Blossom → Bubbles → Buttercup.
 
 Routing by complexity is the essence of a dynamic workflow - do not push every task blindly through the same pipeline.
@@ -36,6 +36,14 @@ This is the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`) at the 
 ## Sequential (single-task) mode
 
 For one task at a time, the canonical files are `kotodute/scope.md` and `kotodute/handoff/<role>.koto`. Drive Blossom → Bubbles → Buttercup in order by spawning each via the `task` tool, reading each handoff before dispatching the next role.
+
+When Buttercup requests changes, route each typed finding to its actual owner instead of sending everything to Bubbles:
+
+- `implementation` → Bubbles within the frozen contract.
+- `contract` → Blossom; reopen planning and re-freeze the revised scope before implementation resumes.
+- `requirement` → user / OpenSpec; stop for confirmation.
+- `architecture-security` → a human-selected R&D decision path; do not disguise it as an implementation retry.
+- `human-only` → aggregate for the user.
 
 ## Parallel orchestration (fan-out)
 

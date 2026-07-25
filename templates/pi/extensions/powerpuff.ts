@@ -16,6 +16,7 @@ type AdvisorRole = "holo" | "motoko";
 type Role = CodingRole | AdvisorRole;
 type ConfiguredRole = "misato" | Role;
 type Requester = "misato" | "lily";
+type TakeoverStage = "recon" | "execute";
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 const THINKING_LEVELS = new Set<ThinkingLevel>([
@@ -89,12 +90,17 @@ const DispatchParams = Type.Object({
 	task: Type.String({ description: "One bounded task for the delegated role" }),
 	takeover: Type.Optional(
 		Type.Boolean({
-			description: "True only for a user-approved Lily to Motoko sequential takeover",
+			description: "True only for a user-approved Lily to Motoko two-stage takeover",
+		}),
+	),
+	takeoverStage: Type.Optional(
+		Type.Union([Type.Literal("recon"), Type.Literal("execute")], {
+			description: "Recon after /motoko-takeover; execute after /motoko-execute",
 		}),
 	),
 	approvalToken: Type.Optional(
 		Type.String({
-			description: "One-time token issued by the user-invoked /motoko-takeover command",
+			description: "One-time token issued by the matching user-invoked Motoko command",
 		}),
 	),
 	change: Type.Optional(
@@ -192,10 +198,14 @@ function projectRelative(root: string, candidate: unknown): string | null {
 	return relative.split(path.sep).join("/");
 }
 
-function readAllowedPaths(root: string): string[] {
+function readScopeListAt(root: string, runDir: string, heading: string): string[] {
 	try {
-		const scope = fs.readFileSync(path.join(root, "kotodute/scope.md"), "utf8");
-		const match = scope.match(/## Allowed Paths\s+```(?:text)?\s*\n([\s\S]*?)```/i);
+		const scopePath = runDir === "kotodute/"
+			? "kotodute/scope.md"
+			: `${runDir.replace(/\/$/, "")}/scope.md`;
+		const scope = fs.readFileSync(path.join(root, scopePath), "utf8");
+		const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const match = scope.match(new RegExp(`## ${escaped}\\s+\`\`\`(?:text)?\\s*\\n([\\s\\S]*?)\`\`\``, "i"));
 		if (!match) return [];
 		return match[1]
 			.split("\n")
@@ -206,9 +216,13 @@ function readAllowedPaths(root: string): string[] {
 	}
 }
 
-function readLilyList(root: string, heading: string): string[] {
+function readScopeList(root: string, heading: string): string[] {
+	return readScopeListAt(root, process.env.PPG_RUN_DIR || "kotodute/", heading);
+}
+
+function readMarkdownList(root: string, relativePath: string, heading: string): string[] {
 	try {
-		const task = fs.readFileSync(path.join(root, "kotodute/lily/task.md"), "utf8");
+		const task = fs.readFileSync(path.join(root, relativePath), "utf8");
 		const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 		const match = task.match(new RegExp(`## ${escaped}\\s+\`\`\`(?:text)?\\s*\\n([\\s\\S]*?)\`\`\``, "i"));
 		if (!match) return [];
@@ -218,6 +232,34 @@ function readLilyList(root: string, heading: string): string[] {
 			.filter((line) => line && !line.startsWith("#"));
 	} catch {
 		return [];
+	}
+}
+
+function readMotokoList(root: string, heading: string): string[] {
+	return readMarkdownList(root, "kotodute/lily/motoko-scope.md", heading);
+}
+
+function readLilyStatus(root: string): string | null {
+	try {
+		const handoff = fs.readFileSync(path.join(root, "kotodute/lily/handoff.md"), "utf8");
+		const statusBlock = handoff.match(/## Status\s+([\s\S]*?)(?=\n## |\s*$)/i);
+		return (
+			statusBlock?.[1]
+				.replace(/<!--[\s\S]*?-->/g, "")
+				.trim()
+				.split(/\s+/)[0] || null
+		);
+	} catch {
+		return null;
+	}
+}
+
+function readMotokoScopeStatus(root: string): string | null {
+	try {
+		const scope = fs.readFileSync(path.join(root, "kotodute/lily/motoko-scope.md"), "utf8");
+		return scope.match(/^\*\*Status:\*\*\s+(\S+)/m)?.[1] || null;
+	} catch {
+		return null;
 	}
 }
 
@@ -244,36 +286,70 @@ function pathMatches(pattern: string, relative: string): boolean {
 }
 
 function roleMayWrite(root: string, role: Role, relative: string): boolean {
-	const motokoTakeover = role === "motoko" && process.env.PPG_TAKEOVER === "1";
-	if (role === "holo" || (role === "motoko" && !motokoTakeover)) {
+	const takeoverStage = role === "motoko"
+		? (process.env.PPG_TAKEOVER_STAGE as TakeoverStage | undefined)
+		: undefined;
+	if (role === "holo" || (role === "motoko" && !takeoverStage)) {
 		const runDir = process.env.PPG_RUN_DIR || "kotodute/";
 		return relative === advisorArtifact(role, runDir);
 	}
-	if (motokoTakeover) {
+	if (takeoverStage === "recon") {
+		return [
+			"kotodute/lily/motoko-scope.md",
+			"kotodute/lily/handoff.md",
+			"kotodute/lily/work-log.md",
+		].includes(relative);
+	}
+	if (takeoverStage === "execute") {
 		const records = [
 			"kotodute/lily/handoff.md",
 			"kotodute/lily/work-log.md",
 			"kotodute/lily/human-todo.md",
 		];
 		if (records.includes(relative)) return true;
-		const denied = readLilyList(root, "Denied Files / Areas");
+		if (
+			relative === "kotodute/lily/task.md" ||
+			relative === "kotodute/lily/motoko-scope.md"
+		) {
+			return false;
+		}
+		const denied = readMotokoList(root, "Denied Files / Areas");
 		if (denied.some((pattern) => pathMatches(pattern, relative))) return false;
-		return readLilyList(root, "Allowed Files / Areas").some((pattern) =>
+		return readMotokoList(root, "Allowed Files / Areas").some((pattern) =>
 			pathMatches(pattern, relative),
 		);
 	}
 
-	const common = [`kotodute/handoff/${role}.koto`, "kotodute/human-todo.md"];
+	const runDir = process.env.PPG_RUN_DIR || "kotodute/";
+	const roleHandoff = runDir === "kotodute/"
+		? `kotodute/handoff/${role}.koto`
+		: `${runDir.replace(/\/$/, "")}/${role}-handoff.koto`;
+	const common = [
+		roleHandoff,
+		"kotodute/human-todo.md",
+		`${runDir.replace(/\/$/, "")}/human-todo.md`,
+	];
 	if (common.includes(relative)) return true;
 
 	if (role === "blossom") {
-		return relative === "kotodute/scope.md" || relative.startsWith("openspec/changes/");
+		const scopePath = runDir === "kotodute/"
+			? "kotodute/scope.md"
+			: `${runDir.replace(/\/$/, "")}/scope.md`;
+		return relative === scopePath;
 	}
 	if (role === "buttercup") {
-		return relative.startsWith("kotodute/runs/") && !fs.existsSync(path.join(root, relative));
+		if (readScopeList(root, "Denied Paths").some((pattern) => pathMatches(pattern, relative))) {
+			return false;
+		}
+		return readScopeList(root, "Reviewer Test Paths").some((pattern) =>
+			pathMatches(pattern, relative),
+		);
 	}
 
-	return readAllowedPaths(root).some((pattern) => pathMatches(pattern, relative));
+	if (readScopeList(root, "Denied Paths").some((pattern) => pathMatches(pattern, relative))) {
+		return false;
+	}
+	return readScopeList(root, "Allowed Paths").some((pattern) => pathMatches(pattern, relative));
 }
 
 function registerChildGuards(pi: any, role: Role) {
@@ -282,6 +358,13 @@ function registerChildGuards(pi: any, role: Role) {
 
 		if (event.toolName === "bash") {
 			const command = String(event.input?.command || "");
+			const takeoverStage = process.env.PPG_TAKEOVER_STAGE as TakeoverStage | undefined;
+			if (role === "motoko" && takeoverStage === "recon") {
+				return {
+					block: true,
+					reason: "Motoko reconnaissance is read-only and may not execute bash",
+				};
+			}
 			if (/^python3 powerpuff\/templates\/common\/scripts\/koto-check\.py [^;&|<>]+$/.test(command)) {
 				return undefined;
 			}
@@ -300,21 +383,31 @@ function registerChildGuards(pi: any, role: Role) {
 					reason: "dependency changes require a human in child-process mode; add a Kotodute TODO",
 				};
 			}
-			if (/kotodute\/(scope|human-todo)\.md|powerpuff\/|\.pi\/|\.vibe\/|\.claude\/|\.opencode\//.test(command)) {
+			if (/kotodute\/(scope|human-todo)\.md|kotodute\/lily\/(task|handoff|motoko-scope|human-todo)\.md|powerpuff\/|\.pi\/|\.vibe\/|\.claude\/|\.opencode\//.test(command)) {
 				return { block: true, reason: "bash access to protected workflow paths is blocked; use read/write tools" };
 			}
-			if (role === "motoko" && process.env.PPG_TAKEOVER === "1") {
+			if (role === "motoko" && takeoverStage === "execute") {
 				if (/[\n;&|<>`]|[$][(]/.test(command)) {
 					return {
 						block: true,
 						reason: "Motoko takeover commands must be single commands without shell composition",
 					};
 				}
-				const allowedCommands = readLilyList(root, "Allowed Commands");
+				const allowedCommands = readMotokoList(root, "Allowed Commands");
 				if (!allowedCommands.includes(command.trim())) {
 					return {
 						block: true,
-						reason: "Motoko may run only exact commands frozen in kotodute/lily/task.md",
+						reason: "Motoko may run only exact commands approved in kotodute/lily/motoko-scope.md",
+					};
+				}
+			}
+			if (role === "bubbles" || role === "buttercup") {
+				const heading = role === "bubbles" ? "Allowed Commands" : "Reviewer Commands";
+				const allowedCommands = readScopeList(root, heading);
+				if (!allowedCommands.includes(command.trim())) {
+					return {
+						block: true,
+						reason: `${role} may run only exact commands listed under ${heading} in the active scope`,
 					};
 				}
 			}
@@ -355,7 +448,11 @@ export default function powerpuffExtension(pi: any) {
 		return;
 	}
 
-	let motokoTakeoverApproval: { token: string; expiresAt: number } | null = null;
+	let motokoTakeoverApproval: {
+		token: string;
+		expiresAt: number;
+		stage: TakeoverStage;
+	} | null = null;
 
 	pi.registerTool({
 		name: "powerpuff_dispatch",
@@ -365,10 +462,10 @@ export default function powerpuffExtension(pi: any) {
 		promptSnippet:
 			"powerpuff_dispatch: run Holo, Motoko, Blossom, Bubbles, or Buttercup in an isolated Pi process",
 		promptGuidelines: [
-			"Use powerpuff_dispatch for the Misato workflow, or for a Lily to Motoko takeover after the user invokes /motoko-takeover.",
+			"Use powerpuff_dispatch for the Misato workflow, or for a Lily to Motoko takeover after the matching user command.",
 			"Run Blossom, Bubbles, and Buttercup sequentially unless their scopes and working directories are disjoint.",
 			"Use Holo only for material business questions and Motoko only for material R&D or architecture decisions.",
-			"Misato uses Motoko as an advisor. Lily may dispatch Motoko only as a user-approved sequential takeover; Lily must stop working first.",
+			"Misato uses Motoko as an advisor. Lily may dispatch Motoko only as a user-approved sequential takeover: recon after /motoko-takeover, execution after /motoko-execute. Lily must stop first.",
 			"Always pass the active OpenSpec change id when one exists.",
 		],
 		parameters: DispatchParams,
@@ -380,6 +477,7 @@ export default function powerpuffExtension(pi: any) {
 				role: Role;
 				task: string;
 				takeover?: boolean;
+				takeoverStage?: TakeoverStage;
 				approvalToken?: string;
 				change?: string;
 				runDir?: string;
@@ -391,6 +489,7 @@ export default function powerpuffExtension(pi: any) {
 		) {
 			const root = path.resolve(ctx.cwd);
 			const takeover = params.requester === "lily" && params.role === "motoko" && params.takeover === true;
+			const takeoverStage = takeover ? params.takeoverStage : undefined;
 			if (params.requester === "lily" && !takeover) {
 				return {
 					content: [
@@ -418,15 +517,17 @@ export default function powerpuffExtension(pi: any) {
 			if (takeover) {
 				const approval = motokoTakeoverApproval;
 				if (
+					!takeoverStage ||
 					!approval ||
 					approval.expiresAt < Date.now() ||
+					approval.stage !== takeoverStage ||
 					params.approvalToken !== approval.token
 				) {
 					return {
 						content: [
 							{
 								type: "text",
-								text: "Rejected: Motoko takeover requires a fresh user-invoked /motoko-takeover approval.",
+								text: "Rejected: Motoko takeover requires a fresh approval from the matching user command.",
 							},
 						],
 						details: { requester: params.requester, role: params.role },
@@ -492,10 +593,56 @@ export default function powerpuffExtension(pi: any) {
 			const model = profile.model;
 			const thinking = profile.thinking;
 			const runDir = takeover ? "kotodute/lily/" : params.runDir || "kotodute/";
+			if (params.role === "bubbles") {
+				if (readScopeListAt(root, runDir, "Allowed Paths").length === 0) {
+					return {
+						content: [{
+							type: "text",
+							text: "Rejected: Bubbles requires a persisted scope with at least one Allowed Path. Dispatch Blossom in thin-contract mode first.",
+						}],
+						details: { role: params.role, runDir },
+						isError: true,
+					};
+				}
+				if (readScopeListAt(root, runDir, "Allowed Commands").length === 0) {
+					return {
+						content: [{
+							type: "text",
+							text: "Rejected: Bubbles requires exact Allowed Commands in the persisted scope.",
+						}],
+						details: { role: params.role, runDir },
+						isError: true,
+					};
+				}
+			}
+			if (params.role === "buttercup") {
+				if (readScopeListAt(root, runDir, "Reviewer Test Paths").length === 0) {
+					return {
+						content: [{
+							type: "text",
+							text: "Rejected: Buttercup requires explicit Reviewer Test Paths in the persisted scope.",
+						}],
+						details: { role: params.role, runDir },
+						isError: true,
+					};
+				}
+				if (readScopeListAt(root, runDir, "Reviewer Commands").length === 0) {
+					return {
+						content: [{
+							type: "text",
+							text: "Rejected: Buttercup requires exact Reviewer Commands in the persisted scope.",
+						}],
+						details: { role: params.role, runDir },
+						isError: true,
+					};
+				}
+			}
 			const changePath = params.change ? `openspec/changes/${params.change}/` : "not specified";
 			const isAdvisor = params.role === "holo" || (params.role === "motoko" && !takeover);
 			const artifact = takeover
-				? "kotodute/lily/handoff.md"
+				? takeoverStage === "recon"
+					? "kotodute/lily/motoko-scope.md"
+					: "kotodute/lily/handoff.md"
 				: isAdvisor
 					? advisorArtifact(params.role as AdvisorRole, runDir)
 					: runDir === "kotodute/"
@@ -511,14 +658,18 @@ export default function powerpuffExtension(pi: any) {
 				`Runtime profile: ${model} / ${thinking}. Record this profile in the durable output for auditability.`,
 				`Read and obey ${roleDefinition.warmup}.`,
 				`Task from ${requesterName}: ${params.task}`,
-				takeover
-					? "The user explicitly approved this sequential takeover. Lily has stopped. Read the frozen kotodute/lily/task.md and handoff.md, solve the task directly within its allowed files and exact allowed commands, run its check plan, then update kotodute/lily/work-log.md and kotodute/lily/handoff.md. Do not delegate or return work to Lily unless blocked."
+				takeoverStage === "recon"
+					? "The user explicitly approved reconnaissance. Lily has stopped. Read the whole project as needed to reconstruct the system, root cause, and real control points. Do not modify product files and do not run bash. Write an evidence-backed execution proposal to kotodute/lily/motoko-scope.md, set its Status to READY_FOR_APPROVAL, update the work log, and set the Lily handoff status to AWAITING_MOTOKO_EXECUTION_APPROVAL. Stop without implementing."
+					: takeoverStage === "execute"
+					? "The user reviewed kotodute/lily/motoko-scope.md and explicitly approved execution. Lily remains stopped. Treat that file as the frozen contract. Implement and verify directly within its allowed files and exact allowed commands, then update kotodute/lily/work-log.md and kotodute/lily/handoff.md. Do not delegate or silently expand scope."
 					: isAdvisor
 					? `This is advisory work only. Do not modify OpenSpec or product files. Write a decision memo to ${artifact} with assumptions, evidence, options, recommendation, confidence, and unresolved questions; then return a concise status to Misato.`
 					: `Write the durable handoff to ${artifact}, validate it when bash is available, then return a concise status to Misato.`,
 			].join("\n");
 
-			const childTools = takeover
+			const childTools = takeoverStage === "recon"
+				? "read,edit,write,grep,find,ls"
+				: takeoverStage === "execute"
 				? "read,bash,edit,write,grep,find,ls"
 				: roleDefinition.tools;
 			const args = [
@@ -560,6 +711,7 @@ export default function powerpuffExtension(pi: any) {
 						PPG_RUN_DIR: runDir,
 						PPG_OPENSPEC_CHANGE: params.change || "",
 						PPG_TAKEOVER: takeover ? "1" : "0",
+						PPG_TAKEOVER_STAGE: takeoverStage || "",
 					},
 				});
 
@@ -619,6 +771,7 @@ export default function powerpuffExtension(pi: any) {
 				requester: params.requester,
 				role: params.role,
 				takeover,
+				takeoverStage,
 				change: params.change,
 				runDir,
 				artifact,
@@ -646,37 +799,76 @@ export default function powerpuffExtension(pi: any) {
 	});
 
 	pi.registerCommand("motoko-takeover", {
-		description: "Approve Motoko to take over a Lily task sequentially",
+		description: "Approve Motoko reconnaissance for a Lily task",
 		handler: async (args: string, ctx: any) => {
 			if (!ctx.isIdle()) {
 				ctx.ui.notify(
-					"Pi is busy; approve Motoko only after Lily has stopped.",
+					"Pi is busy; approve Motoko reconnaissance only after Lily has stopped.",
 					"warning",
 				);
 				return;
 			}
 			const root = path.resolve(ctx.cwd);
-			const handoffPath = path.join(root, "kotodute/lily/handoff.md");
-			if (!fs.existsSync(handoffPath)) {
+			if (!fs.existsSync(path.join(root, "kotodute/lily/handoff.md"))) {
 				ctx.ui.notify("No Lily handoff found.", "error");
 				return;
 			}
-			const handoff = fs.readFileSync(handoffPath, "utf8");
-			const statusBlock = handoff.match(/## Status\s+([\s\S]*?)(?=\n## |\s*$)/i);
-			const handoffStatus = statusBlock?.[1]
-				.replace(/<!--[\s\S]*?-->/g, "")
-				.trim()
-				.split(/\s+/)[0];
-			if (handoffStatus !== "AWAITING_MOTOKO_APPROVAL") {
+			if (readLilyStatus(root) !== "AWAITING_MOTOKO_APPROVAL") {
 				ctx.ui.notify(
 					"Lily has not stopped with AWAITING_MOTOKO_APPROVAL.",
 					"error",
 				);
 				return;
 			}
-			if (readLilyList(root, "Allowed Files / Areas").length === 0) {
+			if (!fs.existsSync(path.join(root, "kotodute/lily/motoko-scope.md"))) {
+				ctx.ui.notify("No Motoko scope template found.", "error");
+				return;
+			}
+			const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+			motokoTakeoverApproval = {
+				token,
+				expiresAt: Date.now() + 10 * 60 * 1000,
+				stage: "recon",
+			};
+			const task = args.trim() || "Investigate the frozen Lily task and propose the safest precise execution scope.";
+			ctx.ui.notify(
+				"Motoko reconnaissance approved for one dispatch; Lily remains stopped.",
+				"info",
+			);
+			pi.sendUserMessage(
+				`The user explicitly approved Motoko reconnaissance. Call powerpuff_dispatch exactly once with requester "lily", role "motoko", takeover true, takeoverStage "recon", approvalToken "${token}", runDir "kotodute/lily/", and task "${task}". Do not implement in the parent context. After Motoko stops, ask the user to review kotodute/lily/motoko-scope.md and invoke /motoko-execute if satisfied.`,
+			);
+		},
+	});
+
+	pi.registerCommand("motoko-execute", {
+		description: "Approve Motoko execution inside the reviewed reconnaissance scope",
+		handler: async (args: string, ctx: any) => {
+			if (!ctx.isIdle()) {
 				ctx.ui.notify(
-					"Lily must freeze at least one allowed file or area before takeover.",
+					"Pi is busy; approve execution only after Motoko reconnaissance has stopped.",
+					"warning",
+				);
+				return;
+			}
+			const root = path.resolve(ctx.cwd);
+			if (readLilyStatus(root) !== "AWAITING_MOTOKO_EXECUTION_APPROVAL") {
+				ctx.ui.notify(
+					"Motoko reconnaissance has not stopped with AWAITING_MOTOKO_EXECUTION_APPROVAL.",
+					"error",
+				);
+				return;
+			}
+			if (readMotokoScopeStatus(root) !== "READY_FOR_APPROVAL") {
+				ctx.ui.notify(
+					"kotodute/lily/motoko-scope.md is not READY_FOR_APPROVAL.",
+					"error",
+				);
+				return;
+			}
+			if (readMotokoList(root, "Allowed Files / Areas").length === 0) {
+				ctx.ui.notify(
+					"Motoko must propose at least one allowed file or area before execution.",
 					"error",
 				);
 				return;
@@ -685,14 +877,15 @@ export default function powerpuffExtension(pi: any) {
 			motokoTakeoverApproval = {
 				token,
 				expiresAt: Date.now() + 10 * 60 * 1000,
+				stage: "execute",
 			};
-			const task = args.trim() || "Take over and complete the frozen Lily task.";
+			const task = args.trim() || "Execute and verify the approved Motoko scope.";
 			ctx.ui.notify(
-				"Motoko takeover approved for one dispatch; Lily remains stopped.",
+				"Motoko execution approved for one dispatch; Lily remains stopped.",
 				"info",
 			);
 			pi.sendUserMessage(
-				`The user explicitly approved a sequential Motoko takeover. Call powerpuff_dispatch exactly once with requester "lily", role "motoko", takeover true, approvalToken "${token}", runDir "kotodute/lily/", and task "${task}". Do not implement in the parent context.`,
+				`The user reviewed kotodute/lily/motoko-scope.md and explicitly approved execution. Call powerpuff_dispatch exactly once with requester "lily", role "motoko", takeover true, takeoverStage "execute", approvalToken "${token}", runDir "kotodute/lily/", and task "${task}". Do not implement in the parent context.`,
 			);
 		},
 	});

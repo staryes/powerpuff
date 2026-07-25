@@ -8,7 +8,11 @@
 
 ## Status
 
-<!-- Use AWAITING_MOTOKO_APPROVAL only after the task packet is frozen and Lily has stopped. -->
+<!--
+Use AWAITING_MOTOKO_APPROVAL only after Lily freezes the problem and stops.
+Motoko reconnaissance changes this to AWAITING_MOTOKO_EXECUTION_APPROVAL.
+Only /motoko-execute may advance from that state.
+-->
 
 ## Files Changed
 

@@ -61,15 +61,21 @@ Lily 流程可獨立安裝:
 pi --approve
 ```
 
-在 Pi 以 `/skill:ppg-lily` 啟用 Lily 後交代任務。如果她判定工作已超出輕量範圍,會凍結 `kotodute/lily/task.md`,把 handoff 狀態設為 `AWAITING_MOTOKO_APPROVAL`,然後停止。只有使用者親自輸入以下命令才會啟動 Motoko:
+在 Pi 以 `/skill:ppg-lily` 啟用 Lily 後交代任務。如果她判定工作已超出輕量範圍,會凍結問題與安全邊界,把 handoff 狀態設為 `AWAITING_MOTOKO_APPROVAL`,然後停止。只有使用者親自輸入以下命令才會啟動 Motoko 的廣域唯讀偵察:
 
 ```text
 /motoko-takeover
 ```
 
-這個核准只供一次派遣使用,十分鐘後失效。Motoko 啟動後直接偵察、修改與驗證;Lily 不會同時運作。Motoko 只能修改 task packet 列出的 `Allowed Files / Areas`,bash 也只能逐字執行 `Allowed Commands`。
+這個核准只供一次偵察派遣使用,十分鐘後失效。Motoko 可廣泛讀取非秘密的專案內容以找出 root cause 與真正控制點,但不能改產品檔案或執行 bash;她把證據與精確執行邊界寫入 `kotodute/lily/motoko-scope.md`,並停在 `AWAITING_MOTOKO_EXECUTION_APPROVAL`。使用者檢視後再親自核准:
 
-`.pi/extensions/powerpuff.ts` 提供 `powerpuff_dispatch` tool。`/ppg-run` 先把父 session 切到 `.pi/powerpuff.json` 指定的 Misato profile;child 再依各自 profile 啟動。預設是 Misato / Holo / Motoko 使用 GPT-5.6-sol,Holo / Motoko 以 xhigh 做決策或複雜接管;Blossom / Bubbles / Buttercup 使用 Mistral Medium 3.5 high。每個 child 都是新的 `pi --no-session` process,context 隔離,以 Kotodute handoff 或 `kotodute/advice/*.md` 交接。
+```text
+/motoko-execute
+```
+
+第二個核准同樣單次、限時。Motoko 之後才能修改 `motoko-scope.md` 列出的 `Allowed Files / Areas`,bash 也只能逐字執行其中的 `Allowed Commands`。Lily 在兩階段都不會同時運作。
+
+`.pi/extensions/powerpuff.ts` 提供 `powerpuff_dispatch` tool。`/ppg-run` 先把父 session 切到 `.pi/powerpuff.json` 指定的 Misato profile;child 再依各自 profile 啟動。預設是 Misato / Holo / Motoko 使用 GPT-5.6-sol,Holo / Motoko 以 xhigh 做決策、廣域偵察或複雜接管;Blossom / Bubbles / Buttercup 使用 Mistral Medium 3.5 high。每個 child 都是新的 `pi --no-session` process,context 隔離,以 Kotodute handoff、`kotodute/advice/*.md` 或 Motoko scope 交接。
 
 ```text
 Misato    openai-codex/gpt-5.6-sol       high
@@ -80,7 +86,7 @@ Bubbles   mistral/mistral-medium-3.5     high
 Buttercup mistral/mistral-medium-3.5     high
 ```
 
-要改模型只需編輯 `.pi/powerpuff.json`;若指定模型不存在或沒有認證,派遣會明確失敗,不會偷偷 fallback。extension 同時在 child 的 `tool_call` 層封鎖 human-only git、依賴變更與 protected paths。Misato 路線中的 Holo / Motoko 仍是唯讀顧問;只有通過 `/motoko-takeover` 一次性許可的 Lily 路線會讓 Motoko 直接實作,且受到凍結 task packet 的檔案與命令白名單約束。
+要改模型只需編輯 `.pi/powerpuff.json`;若指定模型不存在或沒有認證,派遣會明確失敗,不會偷偷 fallback。extension 同時在 child 的 `tool_call` 層封鎖 human-only git、依賴變更與 protected paths。Misato 路線中的 Holo / Motoko 仍是唯讀顧問;Lily 路線必須先以 `/motoko-takeover` 讓 Motoko 唯讀偵察,再由使用者以 `/motoko-execute` 核准她自己提出的精確檔案與命令白名單。
 
 ## 安裝模式
 

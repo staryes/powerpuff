@@ -18,14 +18,16 @@ Vibe 以 `task` tool 派遣角色。Pi 以 project-local extension 的 `powerpuf
 
 按複雜度路由,不把所有任務硬塞同一條管線:
 
-- 機械性、低認知(批次改名、重複套用同一 pattern)→ 跳過 Blossom 細部規劃,直接派 Bubbles 帶薄 spec;或路由給輕量的 Lily 工作流
+- 機械性、低認知(批次改名、重複套用同一 pattern)→ 若已有完整且凍結的 `scope.md`,可直接派 Bubbles;否則由 Blossom 產生最小但完整的 thin contract,不把唯一 scope 偷塞在 dispatch prompt;也可路由給輕量的 Lily 工作流
 - 需要判斷、有歧義、跨檔耦合 → 完整管線 Blossom → Bubbles → Buttercup
 - 重大商業問題(定價、包裝、價值捕獲、通路誘因、go/no-go)→ 實作前派 Holo
 - 重大研發決策(架構、遷移、公開契約、安全、規模、不可逆技術選型)→ 實作前派 Motoko
 
 Advisor 不是固定 stage。若建議會實質改變 OpenSpec,Misato 必須停下來取得人類確認;不能以「顧問說了」當成自動改需求的授權。
 
-Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛系統偵察、深層 root-cause 或攻防分析,Lily 先凍結 task packet、寫入 `AWAITING_MOTOKO_APPROVAL` 並停止。使用者親自執行 `/motoko-takeover` 後,Pi 才發出一次性 token 啟動 Motoko;Motoko 直接完成實作與檢查,Lily 不與她同時運作。這不是 advisor stage,而是 owner 的 sequential replacement。
+Buttercup 的退件依問題所有權分流,不一律丟回 Bubbles:`implementation` → Bubbles;`contract` → Blossom 重新凍結 scope;`requirement` → 使用者 / OpenSpec;`architecture-security` → Motoko advisory;`human-only` → 使用者。只有 implementation finding 算同一個實作 review cycle。
+
+Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛系統偵察、深層 root-cause 或攻防分析,Lily 凍結問題與安全邊界、寫入 `AWAITING_MOTOKO_APPROVAL` 並停止。使用者親自執行 `/motoko-takeover` 後,Pi 先啟動 Motoko 的廣域唯讀 reconnaissance;她可讀非秘密的專案內容,但只能寫 `kotodute/lily/motoko-scope.md` 與工作紀錄。Motoko 自己根據證據提出精確的修改檔案、命令與檢查計畫,狀態轉為 `AWAITING_MOTOKO_EXECUTION_APPROVAL`。使用者檢視後親自執行 `/motoko-execute`,才會給第二枚一次性 token,讓 Motoko 在自己提出且人類確認的 scope 內直接完成實作與檢查。Lily 全程不與她並行。這不是 advisor stage,而是 owner 的 sequential replacement。
 
 ## 狀態走檔案,不走對話
 
@@ -52,7 +54,7 @@ kotodute/                # 工作區(clean 模式下是巢狀 git repo)
   handoff/<girl>.koto    # 角色狀態(Kotodute)
   advice/{holo,motoko}.md # 按需決策 memo
   runs/<task-id>/        # 並行模式 per-run namespace
-  lily/                  # 選裝:輕量工作流狀態(task/work-log/handoff/human-todo)
+  lily/                  # 選裝:輕量工作流狀態,含 Motoko reconnaissance 後的人類核准 scope
   archive/
 .claude/commands/        # slash 入口(相對路徑薄指標)
 .vibe/agents|prompts/    # Vibe 角色定義(TOML 白名單 = enforcement)
