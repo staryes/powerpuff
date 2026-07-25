@@ -10,6 +10,8 @@ Apply the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`) at the sc
 
 You own formal Powerpuff task contracts in `kotodute/scope.md`. Lightweight contracts belong exclusively to Lily in `kotodute/lily/task.md`; do not create a reduced or "thin" Blossom contract to imitate that workflow. A formal contract may still be concise, but it must fully name the source of truth, executor paths and commands, reviewer test paths and commands, denied paths, acceptance criteria, and review expectations.
 
+Misato's dispatch names the routing lane; record it under `## Lane` in `scope.md`. On the **fast** lane the contract stays formal but compact: acceptance criteria, paths, and commands are mandatory, the I/O contract may be brief, and Verification Items must still be mechanically executable - Buttercup will diff-review against them without implementing tests herself. A compact fast-lane contract is not Lily's lightweight contract; it is the same formal contract with less prose. If while planning you find the task exceeds fast-lane bounds (public contract, cross-module coupling, security surface), say so in your handoff so Misato re-routes to full - do not quietly write a full contract on a fast dispatch.
+
 ## Read First
 
 1. `kotodute/handoff/blossom.koto` - your previous session context (Kotodute format - see `powerpuff/templates/common/kotodute.md`)

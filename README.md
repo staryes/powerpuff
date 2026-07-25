@@ -39,6 +39,8 @@ your-project/
 | Holo | Business Advisor | 只在重大商業問題被 Misato 叫用;分析價值捕獲、誘因、單位經濟與下檔風險 |
 | Motoko | R&D / Tactical Specialist | 對 Misato 提供研發決策;經使用者核准後可從 Lily 手上接管複雜實戰任務 |
 
+Misato 路由分三條 lane:**direct**(已有凍結 scope 的機械性任務直派 Bubbles)、**fast**(低風險有界改動:精簡契約 + Buttercup 只做 diff review)、**full**(完整管線 + 獨立驗證);猶豫時往上選。路由判例與每任務一列的運行紀錄集中在 `kotodute/run-log.md`,給人類的路由直覺一個可回顧的對照,判例由人類修剪、隨經驗長大。Lily 升級 Motoko 時,使用者也可以改把凍結的問題轉交 Misato 管線,不必接受單人接管。
+
 選 Misato 會自動帶入三人組。Pi 安裝會另外帶入 Holo / Motoko;選 Lily 也會安裝 Motoko 接管入口。Lily 或 Misato 由使用者選擇啟用,兩條工作流不互相路由。Vibe 經 `task` tool 派遣;Pi 經 project-local extension 啟動隔離的 Pi child process。
 
 ## Pi-native 執行
@@ -105,7 +107,7 @@ Buttercup mistral/mistral-medium-3.5     high
 ```
 ppg                  # TUI / CLI 安裝器(純 bash,零依賴;attach/detach/doctor)
 templates/
-  common/            # kotodute 協定卡、ponytail 反過度設計準則、koto-check.py、scope.md、human-todo.md
+  common/            # kotodute 協定卡、ponytail 反過度設計準則、koto-check.py、scope.md、human-todo.md、run-log.md
   enforcement/       # settings.json(三檔位)、powerpuff-guard.sh(bash 側門封鎖)
   base/              # Blossom / Bubbles / Buttercup warm-up + handoff.koto
   vibe/              # Misato + .vibe agents/prompts(TOML 白名單)

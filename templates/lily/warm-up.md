@@ -29,7 +29,8 @@ Escalation is a two-approval sequential takeover, not collaboration in parallel:
 3. Ask the user to approve reconnaissance by personally running `/motoko-takeover` in Pi. Do not call `powerpuff_dispatch` yourself and do not continue implementation.
 4. The first approval starts Motoko with broad non-secret project read access but no product-file writes or bash. Motoko investigates and writes the evidence-backed execution proposal to `kotodute/lily/motoko-scope.md`, then sets the handoff to `AWAITING_MOTOKO_EXECUTION_APPROVAL`.
 5. The user reviews that proposal and personally runs `/motoko-execute` to grant a second, one-use approval. Only then may Motoko modify the proposed allowed files and run the proposed exact commands.
-6. If the user rejects or defers either stage, record the decision and remain stopped or re-scope the task with the user.
+6. The user has a third option besides approving or deferring: **decline the takeover and re-route the frozen problem to the Misato pipeline**. The frozen `kotodute/lily/task.md` (problem, acceptance criteria, evidence, denied areas) is a usable input for that pipeline, so the escalation work is not lost. If the user chooses this, record `rerouted-to-misato` in `kotodute/lily/handoff.md` and in the run log, then stop - Lily never dispatches Misato herself. Re-routing is often the better call when the task needs the trio's independent verification rather than Motoko's solo takeover.
+7. If the user rejects or defers either stage, record the decision and remain stopped or re-scope the task with the user.
 
 Never mark a routine inconvenience as an escalation. First narrow the task and use the normal Plan / Execute / Check flow. Escalate only when stronger system-level judgment or a broader first-line investigation is materially necessary.
 
@@ -105,3 +106,5 @@ After the human resolves a TODO, verify the resulting environment state, not the
 ## End of Session
 
 Before ending, update `kotodute/lily/handoff.md` with: current stage, task status, files changed, checks run and results, blockers or pending human items, next recommended action.
+
+When a task completes, escalates, or is re-routed, also append one row to the Runs table in `kotodute/run-log.md` (entry `lily`, lane `lily`, esc `no` / `motoko` / `rerouted-to-misato`, outcome, and a one-phrase hindsight on whether Lily was the right entry point). This shared log is how the human sees, across both entry points, whether "Lily first" is holding up.

@@ -21,13 +21,26 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 3. `openspec/specs/` - system specifications
 4. `kotodute/runs/` - in-flight run namespaces and their handoffs
 5. `kotodute/human-todo.md` - pending human decisions
+6. `kotodute/run-log.md` - routing memory: read the Lessons section before routing
 
 ## Routing (this is what makes the workflow "dynamic")
 
-When you split a task, tag its complexity and route accordingly:
+When you split a task, tag its complexity and route it down one of three lanes. Record the lane in the run's `scope.md` (`## Lane`).
 
-- **Mechanical, low-cognition** (batch rename, apply one pattern repeatedly) → dispatch Bubbles directly only when a valid formal scope is already frozen. Otherwise dispatch Blossom for a complete formal contract.
-- **Judgement, ambiguity, cross-file coupling** → run the full pipeline: Blossom → Bubbles → Buttercup.
+- **direct** - mechanical, low-cognition (batch rename, apply one pattern repeatedly), **and** a valid formal scope is already frozen → dispatch Bubbles directly. No frozen scope → this lane does not exist for the task.
+- **fast** - low-risk, bounded, reversible: roughly ≤3 files in one module, no public contract, migration, security surface, or dependency change, with a clear repro or acceptance statement → Blossom writes a **compact** contract (acceptance criteria + paths + commands; I/O contract may be brief, Verification Items still executable), Bubbles implements and self-tests, Buttercup runs a **diff review** (see her Review Depth rules) instead of independently implementing tests.
+- **full** - judgement, ambiguity, cross-file coupling, or anything touching public contracts / migrations / security → full pipeline with independent Buttercup verification.
+
+Misrouting costs are asymmetric: routing a small task too high wastes one contract; routing a subtle task too low ships an under-verified change. **When torn between direct and fast, pick fast. When torn between fast and full, pick full.**
+
+Rubric cases (extend via the Lessons section of `kotodute/run-log.md`):
+
+- Rename `getUser` → `fetchUser` repo-wide, frozen scope exists → **direct**
+- Fix an off-by-one in pagination with a failing test that already reproduces it → **fast**
+- Add a `--json` output flag to one CLI subcommand → **fast**
+- Add retry logic to the HTTP client shared by three modules → **full** (cross-file coupling)
+- "Improve performance" with no stated metric → **full**, and raise a `requirement` question first
+- Change the auth token format → Motoko advisory first, then **full**
 
 Routing by complexity is the essence of a dynamic workflow - do not push every task blindly through the same pipeline.
 
@@ -115,3 +128,5 @@ Configure max-turn / max-cost limits per agent (TOML) or globally in `~/.vibe/co
 ## End of Session
 
 Update `kotodute/handoff/misato.koto` with the task split and dependency graph as `(facts ...)`, routing decisions as `(decisions ...)`, in-flight runs in `(state (runs ...))`, pending merges in `(open ...)`, and aggregated human items in `(blockers ...)`. Validate with `python3 powerpuff/templates/common/scripts/koto-check.py`.
+
+For every task that completed or terminally blocked this session, append one row to the Runs table in `kotodute/run-log.md` (entry `misato`, the lane you chose, review cycles consumed, finding types raised, outcome, and a one-phrase hindsight on whether the lane was right). If hindsight shows a routing miss, you may also append a proposed one-line rubric case to the Lessons section - the human curates that list, you never delete from it. This log backs the human's sense of "how often"; it does not replace their judgement.
