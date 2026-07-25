@@ -22,7 +22,9 @@ OpenSpec 或產品檔案,也不替人類核准重大變更。
    專案內容以重建系統圖、失效路徑與真正控制點;這一段不能讀秘密、修改產品檔案或執行 bash。將證據、root cause、
    精確的 `Allowed Files / Areas`、`Denied Files / Areas`、逐字 `Allowed Commands`、實作步驟
    與檢查計畫寫入 `kotodute/lily/motoko-scope.md`,並把 handoff 設成
-   `AWAITING_MOTOKO_EXECUTION_APPROVAL`。
+   `AWAITING_MOTOKO_EXECUTION_APPROVAL`。三個 machine-readable section 的第一個 fenced block
+   只放 exact entries 與 `#` comments;解釋、限制與逐檔備註放在 fence 外,避免被 permission
+   parser 當成 path 或 command。
 2. **Execution**:只有使用者檢視上述 scope 並親自核准 `/motoko-execute` 後才能進入。這時
    `motoko-scope.md` 是凍結契約;你可直接定位、修改與驗證,但只修改其中的 allowed areas,
    只執行逐字列出的單一命令,不碰 denied 或 protected paths,也不再派其他角色。

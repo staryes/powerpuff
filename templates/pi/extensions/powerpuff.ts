@@ -198,19 +198,32 @@ function projectRelative(root: string, candidate: unknown): string | null {
 	return relative.split(path.sep).join("/");
 }
 
+function parseMarkdownFencedList(markdown: string, heading: string): string[] {
+	const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const section = markdown.match(
+		new RegExp(
+			`(?:^|\\r?\\n)##[ \\t]+${escaped}[ \\t]*\\r?\\n([\\s\\S]*?)(?=\\r?\\n##[ \\t]+|$)`,
+			"i",
+		),
+	);
+	if (!section) return [];
+
+	// Prose may explain the contract before the section's machine-readable fence.
+	const block = section[1].match(/```(?:text)?[ \t]*\r?\n([\s\S]*?)```/i);
+	if (!block) return [];
+	return block[1]
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line && !line.startsWith("#"));
+}
+
 function readScopeListAt(root: string, runDir: string, heading: string): string[] {
 	try {
 		const scopePath = runDir === "kotodute/"
 			? "kotodute/scope.md"
 			: `${runDir.replace(/\/$/, "")}/scope.md`;
 		const scope = fs.readFileSync(path.join(root, scopePath), "utf8");
-		const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		const match = scope.match(new RegExp(`## ${escaped}\\s+\`\`\`(?:text)?\\s*\\n([\\s\\S]*?)\`\`\``, "i"));
-		if (!match) return [];
-		return match[1]
-			.split("\n")
-			.map((line) => line.trim())
-			.filter((line) => line && !line.startsWith("#"));
+		return parseMarkdownFencedList(scope, heading);
 	} catch {
 		return [];
 	}
@@ -223,13 +236,7 @@ function readScopeList(root: string, heading: string): string[] {
 function readMarkdownList(root: string, relativePath: string, heading: string): string[] {
 	try {
 		const task = fs.readFileSync(path.join(root, relativePath), "utf8");
-		const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		const match = task.match(new RegExp(`## ${escaped}\\s+\`\`\`(?:text)?\\s*\\n([\\s\\S]*?)\`\`\``, "i"));
-		if (!match) return [];
-		return match[1]
-			.split("\n")
-			.map((line) => line.trim())
-			.filter((line) => line && !line.startsWith("#"));
+		return parseMarkdownFencedList(task, heading);
 	} catch {
 		return [];
 	}
