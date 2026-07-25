@@ -6,7 +6,7 @@
 |---|---|---|
 | A | Holo / Motoko(Advisors) | Misato 路線中按需提供商業 / 研發決策 memo;不實作、不核准、不改 OpenSpec。 |
 | 0 | Misato(Orchestrator / Router) | 專案層級拆任務、判複雜度、路由、fan-out / 收集 / 合併。使用者面對的 Vibe 或 Pi agent。 |
-| 1 | Blossom(Planner) | 單一任務的規劃:I/O contract + 驗證項目,精確到能直接寫測試。 |
+| 1 | Blossom(Planner) | 正式 Powerpuff 任務的規劃:I/O contract + 驗證項目,精確到能直接寫測試。輕量契約由 Lily 擁有。 |
 | 2 | Bubbles(Executor) | 實作;看得到驗證 spec,交棒前先自測。 |
 | 3 | Buttercup(Test / Review) | 從 spec 獨立實作測試 → 執行 → 回報/退回 + diff review + 越界檢查。 |
 
@@ -18,7 +18,7 @@ Vibe 以 `task` tool 派遣角色。Pi 以 project-local extension 的 `powerpuf
 
 按複雜度路由,不把所有任務硬塞同一條管線:
 
-- 機械性、低認知(批次改名、重複套用同一 pattern)→ 若已有完整且凍結的 `scope.md`,可直接派 Bubbles;否則由 Blossom 產生最小但完整的 thin contract,不把唯一 scope 偷塞在 dispatch prompt;也可路由給輕量的 Lily 工作流
+- 機械性、低認知(批次改名、重複套用同一 pattern)→ 路由給 Lily,由她擁有 `kotodute/lily/task.md` 輕量契約並完成 Plan / Execute / Check。只有已存在完整且凍結的正式 `scope.md` 時才可直接派 Bubbles;否則選擇 Powerpuff 管線就必須由 Blossom 建立完整正式契約
 - 需要判斷、有歧義、跨檔耦合 → 完整管線 Blossom → Bubbles → Buttercup
 - 重大商業問題(定價、包裝、價值捕獲、通路誘因、go/no-go)→ 實作前派 Holo
 - 重大研發決策(架構、遷移、公開契約、安全、規模、不可逆技術選型)→ 實作前派 Motoko

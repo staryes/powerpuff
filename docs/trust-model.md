@@ -25,7 +25,7 @@ ask 清單保持短而具體,否則會養成反射性按 y 的習慣,ask 就退�
 
 失效模式錯開:Blossom 訂標準(I/O contract + 驗證項目,寫到能直接出測試),Bubbles 作答並自測,Buttercup 拿同一份標準獨立實作測試來評分。Buttercup 不是自己出題自己改——題目來自 Blossom;防漏的關鍵在 **spec 的完整性**,不在誰把測試打進程式碼。驗收標準盡量寫成可機械執行的測試,pass/fail 由測試決定,不由任何人的判斷決定。
 
-三人組的實際權限跟責任切割對齊:Blossom 只能寫 task contract 與自己的 handoff,不能改 OpenSpec 或產品;Bubbles 只能寫 `Allowed Paths` 並逐字執行 `Allowed Commands`;Buttercup 只能寫 `Reviewer Test Paths` 與 review handoff,並逐字執行 `Reviewer Commands`。Buttercup 的 findings 帶 owner type,由 Misato 分流;contract / requirement / architecture 問題不會被偽裝成 Bubbles 的 implementation retry。
+三人組的實際權限跟責任切割對齊:Blossom 只擁有正式 Powerpuff task contract,只能寫 `scope.md` 與自己的 handoff,不能改 OpenSpec 或產品;輕量契約由 Lily 以 `kotodute/lily/task.md` 獨立擁有。Bubbles 只能寫 `Allowed Paths` 並逐字執行 `Allowed Commands`;Buttercup 只能寫 `Reviewer Test Paths` 與 review handoff,並逐字執行 `Reviewer Commands`。Buttercup 的 findings 帶 owner type,由 Misato 分流;contract / requirement / architecture 問題不會被偽裝成 Bubbles 的 implementation retry。
 
 Misato 路線中的 Holo / Motoko 是 advisory lens,不在 approval chain。Pi child guard 只允許它們讀專案並寫各自的 `kotodute/advice/*.md`;它們不能改 OpenSpec、產品檔案或 reviewer 結論。顧問建議若會改變需求或架構,Misato 必須停下來交由人類拍板。
 

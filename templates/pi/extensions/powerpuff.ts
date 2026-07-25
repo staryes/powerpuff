@@ -598,7 +598,7 @@ export default function powerpuffExtension(pi: any) {
 					return {
 						content: [{
 							type: "text",
-							text: "Rejected: Bubbles requires a persisted scope with at least one Allowed Path. Dispatch Blossom in thin-contract mode first.",
+							text: "Rejected: Bubbles requires a persisted formal scope with at least one Allowed Path. Route lightweight work to Lily, or dispatch Blossom for a complete Powerpuff contract.",
 						}],
 						details: { role: params.role, runDir },
 						isError: true,
