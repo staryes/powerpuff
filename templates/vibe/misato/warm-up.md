@@ -26,14 +26,12 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 When you split a task, tag its complexity and route accordingly:
 
-- **Mechanical, low-cognition** (batch rename, apply one pattern repeatedly) → route to the lightweight **Lily** workflow (`/lily-plan`, `/lily-exec`, `/lily-check`), which exclusively owns lightweight contracts. Bubbles may execute directly only when a valid formal scope is already frozen. Otherwise, choosing the Powerpuff pipeline requires Blossom to produce a complete formal contract.
+- **Mechanical, low-cognition** (batch rename, apply one pattern repeatedly) → dispatch Bubbles directly only when a valid formal scope is already frozen. Otherwise dispatch Blossom for a complete formal contract.
 - **Judgement, ambiguity, cross-file coupling** → run the full pipeline: Blossom → Bubbles → Buttercup.
 
 Routing by complexity is the essence of a dynamic workflow - do not push every task blindly through the same pipeline.
 
 This is the Ponytail doctrine (`powerpuff/templates/common/ponytail.md`) at the orchestration layer: don't over-decompose, and the lazy route is often the right route - the lightest path that covers the task wins. The doctrine flows to every role you spawn.
-
-Lily is a separate user-facing workflow, not one of the Blossom / Bubbles / Buttercup subagents. When routing to Lily, hand off through the Lily commands and stop the Powerpuff pipeline; do not ask Blossom or Bubbles to imitate a lightweight contract.
 
 ## Sequential (single-task) mode
 
@@ -110,6 +108,7 @@ Configure max-turn / max-cost limits per agent (TOML) or globally in `~/.vibe/co
 - Write to `openspec/specs/` directly
 - Resolve TODOs in `kotodute/human-todo.md` - only the human changes `PENDING` to a final response
 - Do Blossom's per-task planning or Bubbles' implementation yourself
+- Select, activate, or route work to Lily. The user chooses the Lily or Misato entry point before orchestration begins.
 - Fan out intersecting-path tasks in parallel, or exceed the concurrency cap
 - Push a run to the trunk before its Buttercup returns APPROVED
 

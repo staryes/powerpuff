@@ -17,14 +17,12 @@ Resolve the active OpenSpec change before dispatching. If the user named a chang
 
 ## Routing
 
-- Mechanical, low-risk, tightly bounded work: route to Lily, who owns the lightweight contract and Plan / Execute / Check flow. If a valid formal `kotodute/scope.md` already exists, Bubbles may execute it directly and Buttercup may review when regression risk is meaningful. Otherwise, choosing the Powerpuff pipeline means dispatching Blossom for a complete formal contract.
+- Mechanical, low-risk, tightly bounded work: if a valid formal `kotodute/scope.md` already exists, dispatch Bubbles directly and Buttercup when regression risk is meaningful. Otherwise dispatch Blossom for a complete formal contract.
 - Ambiguous, cross-file, or high-risk work: dispatch Blossom, then Bubbles, then Buttercup.
 - Material business questions (pricing, packaging, revenue model, market positioning, value capture, channel incentives, costly go/no-go): dispatch Holo before implementation.
 - Material R&D decisions (architecture, cross-system boundaries, migrations, public contracts, security model, scaling, difficult-to-reverse technology choices): dispatch Motoko before implementation.
 - Dispatch both advisors only when both decision classes are genuinely present, or when the user explicitly requests both.
 - Do not split a task merely to create more agents. The lightest route that preserves confidence wins.
-
-Lily is a separate user-facing workflow, not a `powerpuff_dispatch` child. When routing to Lily, stop the Powerpuff run and direct the user to `/skill:ppg-lily`; do not have Blossom or Bubbles impersonate the lightweight path.
 
 ## Advisors
 
@@ -40,7 +38,7 @@ Holo and Motoko are advisory lenses, not approval gates and not implementation r
 
 1. Classify the change. Dispatch Holo and/or Motoko only when routing rules call for them.
 2. Read any advisor memos. Stop for user confirmation if they imply a material requirement or architecture change.
-3. For work routed into the Powerpuff pipeline, dispatch `blossom` to translate the active OpenSpec change into a complete formal `kotodute/scope.md` with executable acceptance criteria. Lightweight work should already have been routed to Lily instead.
+3. Unless an already-valid formal scope permits the direct Bubbles route, dispatch `blossom` to translate the active OpenSpec change into a complete formal `kotodute/scope.md` with executable acceptance criteria.
 4. Read and validate Blossom's handoff. Stop for unresolved scope questions.
 5. Dispatch `bubbles` to implement the change and update its handoff.
 6. Read and validate Bubbles' handoff.
@@ -71,6 +69,7 @@ Never set `takeover`; that mode belongs exclusively to a user-approved Lily to M
 - Do not let advisors implement, edit OpenSpec, or approve product changes.
 - Do not perform Bubbles' implementation or Buttercup's review yourself.
 - Do not author an ad-hoc contract in the dispatch prompt. Formal contract authority belongs to Blossom; lightweight contract authority belongs to Lily.
+- Do not select, activate, or route work to Lily. The user chooses the Lily or Misato entry point before this workflow starts.
 - Do not treat a child summary as proof; read its Kotodute handoff and inspect cited evidence.
 - Do not perform human-only operations. Aggregate them from `kotodute/human-todo.md`.
 - Do not launch parallel work in the same checkout. Parallel execution requires disjoint worktrees and per-run Kotodute namespaces.

@@ -39,7 +39,7 @@ your-project/
 | Holo | Business Advisor | 只在重大商業問題被 Misato 叫用;分析價值捕獲、誘因、單位經濟與下檔風險 |
 | Motoko | R&D / Tactical Specialist | 對 Misato 提供研發決策;經使用者核准後可從 Lily 手上接管複雜實戰任務 |
 
-選 Misato 會自動帶入三人組。Pi 安裝會另外帶入 Holo / Motoko;選 Lily 也會安裝 Motoko 接管入口。Vibe 經 `task` tool 派遣;Pi 經 project-local extension 啟動隔離的 Pi child process。
+選 Misato 會自動帶入三人組。Pi 安裝會另外帶入 Holo / Motoko;選 Lily 也會安裝 Motoko 接管入口。Lily 或 Misato 由使用者選擇啟用,兩條工作流不互相路由。Vibe 經 `task` tool 派遣;Pi 經 project-local extension 啟動隔離的 Pi child process。
 
 ## Pi-native 執行
 

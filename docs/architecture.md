@@ -16,9 +16,9 @@ Vibe 以 `task` tool 派遣角色。Pi 以 project-local extension 的 `powerpuf
 
 ## 路由(動態的本質)
 
-按複雜度路由,不把所有任務硬塞同一條管線:
+Lily 或 Misato 是使用者在任務開始前選擇的入口;Misato 無權啟用、切換或把任務轉派給 Lily。以下動態路由只發生在使用者已選擇的 Misato / Powerpuff 管線內:
 
-- 機械性、低認知(批次改名、重複套用同一 pattern)→ 路由給 Lily,由她擁有 `kotodute/lily/task.md` 輕量契約並完成 Plan / Execute / Check。只有已存在完整且凍結的正式 `scope.md` 時才可直接派 Bubbles;否則選擇 Powerpuff 管線就必須由 Blossom 建立完整正式契約
+- 機械性、低認知(批次改名、重複套用同一 pattern)→ 只有已存在完整且凍結的正式 `scope.md` 時才可直接派 Bubbles;否則由 Blossom 建立完整正式契約
 - 需要判斷、有歧義、跨檔耦合 → 完整管線 Blossom → Bubbles → Buttercup
 - 重大商業問題(定價、包裝、價值捕獲、通路誘因、go/no-go)→ 實作前派 Holo
 - 重大研發決策(架構、遷移、公開契約、安全、規模、不可逆技術選型)→ 實作前派 Motoko
