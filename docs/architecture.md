@@ -30,13 +30,15 @@ Advisor 不是固定 stage。若建議會實質改變 OpenSpec,Misato 必須停�
 
 Buttercup 的退件依問題所有權分流,不一律丟回 Bubbles:`implementation` → Bubbles;`contract` → Blossom 重新凍結 scope;`requirement` → 使用者 / OpenSpec;`architecture-security` → Motoko advisory;`human-only` → 使用者。只有 implementation finding 算同一個實作 review cycle。
 
-Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛系統偵察、深層 root-cause 或攻防分析,Lily 凍結問題與安全邊界、寫入 `AWAITING_MOTOKO_APPROVAL` 並停止。使用者親自執行 `/motoko-takeover` 後,Pi 先啟動 Motoko 的廣域唯讀 reconnaissance;她可讀非秘密的專案內容,但只能寫 `kotodute/lily/motoko-scope.md` 與工作紀錄。Motoko 自己根據證據提出精確的修改檔案、命令與檢查計畫,狀態轉為 `AWAITING_MOTOKO_EXECUTION_APPROVAL`。使用者檢視後親自執行 `/motoko-execute`,才會給第二枚一次性 token,讓 Motoko 在自己提出且人類確認的 scope 內直接完成實作與檢查。Lily 全程不與她並行。這不是 advisor stage,而是 owner 的 sequential replacement。
+Lily 另有一條互斥的 escalation 路線。當小任務需要廣泛偵察或深層 root-cause,Lily 凍結問題並把 machine-only `kotodute/lily/state.md` 設為 `AWAITING_MOTOKO_APPROVAL`。使用者親自執行 `/motoko-takeover` 後,Motoko 只做廣域唯讀 reconnaissance,提出精確 scope,再把 state 設為 `AWAITING_MOTOKO_EXECUTION_APPROVAL`;第二次 `/motoko-execute` 才允許 scope 內實作。兩者是 sequential owner,因此可依序更新 shared project records,但 authorization 永遠只讀 `lily/state.md`,不讀 human handoff。
 
 使用者在 `AWAITING_MOTOKO_APPROVAL` 時另有第三個選項:不核准接管,改把 Lily 凍結的問題(`kotodute/lily/task.md`)轉交 Misato 管線重跑——升級所做的凍結工作不會白費。當任務需要的是三人組的獨立驗證而非 Motoko 的單人接管時,這往往是更好的選擇;Lily 記下 `rerouted-to-misato` 後停止,自己永不派遣 Misato。
 
 ## 狀態走檔案,不走對話
 
-子代理回傳純文字給父代理;豐富狀態(diff、測試結果、blocker)必須落盤(`<role>-handoff.koto`),任何未來的角色或 session 都能重讀。派遣 prompt 只負責指路:run 目錄在哪、worktree 在哪。乾淨的子代理 context + 客觀的測試,才是角色獨立性的來源——不是給 reviewer 換一個模型。
+Project-facing continuation集中在 shared `issues.md`、monthly journal、六欄位 `handoff.md` 與 `human-todo.md`;Misato 與 Lily 可跨入口接手。重要決定在 journal 標成 `DECISION`,舊決定不改寫。
+
+內部 agent state仍以 `<role>-handoff.koto` 落盤。平行 child 不能直接 append shared records,而是在 disjoint run namespace寫Koto;serialized entry owner於fan-in後彙整。乾淨 child context + 客觀測試才是角色獨立性的來源。
 
 ## 並行 fan-out 的成立條件
 
@@ -54,13 +56,19 @@ Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛
 ```
 powerpuff/               # 框架 clone:ppg、templates/(warm-up、協定卡、scripts、hook)
 kotodute/                # 工作區(clean 模式下是巢狀 git repo)
-  scope.md               # 當前任務契約(Blossom 寫,執行期凍結;含 Lane)
-  human-todo.md          # 人類執行面(deny 檔指令佇列)
-  run-log.md             # 路由記憶:Lessons 判例 + 每任務一列的運行紀錄(人類修剪)
-  handoff/<girl>.koto    # 角色狀態(Kotodute)
+  issues.md              # 唯一 durable issue register
+  journals/YYYY-MM.md    # shared append-only journal;重要決定標 DECISION
+  handoff.md             # 六欄位 project continuation(Misato ↔ Lily)
+  human-todo.md          # shared 人類決策/命令佇列
+  run-log.md             # 路由記憶,不取代 journal
+  scope.md               # Blossom 正式契約
+  handoff/<girl>.koto    # internal role state(Kotodute)
   advice/{holo,motoko}.md # 按需決策 memo
-  runs/<task-id>/        # 並行模式 per-run namespace
-  lily/                  # 選裝:輕量工作流狀態,含 Motoko reconnaissance 後的人類核准 scope
+  runs/<task-id>/        # per-run scope + *-handoff.koto
+  lily/
+    task.md              # Lily bounded contract
+    state.md             # Motoko approval machine state only
+    motoko-scope.md      # 人類檢閱後的 takeover scope
   archive/
 .claude/commands/        # slash 入口(相對路徑薄指標)
 .vibe/agents|prompts/    # Vibe 角色定義(TOML 白名單 = enforcement)

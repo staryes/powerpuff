@@ -248,8 +248,8 @@ function readMotokoList(root: string, heading: string): string[] {
 
 function readLilyStatus(root: string): string | null {
 	try {
-		const handoff = fs.readFileSync(path.join(root, "kotodute/lily/handoff.md"), "utf8");
-		const statusBlock = handoff.match(/## Status\s+([\s\S]*?)(?=\n## |\s*$)/i);
+		const state = fs.readFileSync(path.join(root, "kotodute/lily/state.md"), "utf8");
+		const statusBlock = state.match(/## Status\s+([\s\S]*?)(?=\n## |\s*$)/i);
 		return (
 			statusBlock?.[1]
 				.replace(/<!--[\s\S]*?-->/g, "")
@@ -292,6 +292,12 @@ function pathMatches(pattern: string, relative: string): boolean {
 	return globPattern(normalized).test(relative);
 }
 
+function currentJournalPath(): string {
+	const now = new Date();
+	const month = String(now.getMonth() + 1).padStart(2, "0");
+	return `kotodute/journals/${now.getFullYear()}-${month}.md`;
+}
+
 function roleMayWrite(root: string, role: Role, relative: string): boolean {
 	const takeoverStage = role === "motoko"
 		? (process.env.PPG_TAKEOVER_STAGE as TakeoverStage | undefined)
@@ -303,15 +309,19 @@ function roleMayWrite(root: string, role: Role, relative: string): boolean {
 	if (takeoverStage === "recon") {
 		return [
 			"kotodute/lily/motoko-scope.md",
-			"kotodute/lily/handoff.md",
-			"kotodute/lily/work-log.md",
+			"kotodute/lily/state.md",
+			"kotodute/issues.md",
+			"kotodute/handoff.md",
+			currentJournalPath(),
 		].includes(relative);
 	}
 	if (takeoverStage === "execute") {
 		const records = [
-			"kotodute/lily/handoff.md",
-			"kotodute/lily/work-log.md",
-			"kotodute/lily/human-todo.md",
+			"kotodute/lily/state.md",
+			"kotodute/issues.md",
+			"kotodute/handoff.md",
+			"kotodute/human-todo.md",
+			currentJournalPath(),
 		];
 		if (records.includes(relative)) return true;
 		if (
@@ -327,15 +337,21 @@ function roleMayWrite(root: string, role: Role, relative: string): boolean {
 		);
 	}
 
+	if (
+		["kotodute/issues.md", "kotodute/handoff.md", "kotodute/run-log.md"].includes(relative) ||
+		relative.startsWith("kotodute/journals/")
+	) {
+		return false;
+	}
+
 	const runDir = process.env.PPG_RUN_DIR || "kotodute/";
 	const roleHandoff = runDir === "kotodute/"
 		? `kotodute/handoff/${role}.koto`
 		: `${runDir.replace(/\/$/, "")}/${role}-handoff.koto`;
-	const common = [
-		roleHandoff,
-		"kotodute/human-todo.md",
-		`${runDir.replace(/\/$/, "")}/human-todo.md`,
-	];
+	const humanTodo = runDir === "kotodute/"
+		? "kotodute/human-todo.md"
+		: `${runDir.replace(/\/$/, "")}/human-todo.md`;
+	const common = [roleHandoff, humanTodo];
 	if (common.includes(relative)) return true;
 
 	if (role === "blossom") {
@@ -390,7 +406,7 @@ function registerChildGuards(pi: any, role: Role) {
 					reason: "dependency changes require a human in child-process mode; add a Kotodute TODO",
 				};
 			}
-			if (/kotodute\/(scope|human-todo)\.md|kotodute\/lily\/(task|handoff|motoko-scope|human-todo)\.md|powerpuff\/|\.pi\/|\.vibe\/|\.claude\/|\.opencode\//.test(command)) {
+			if (/kotodute\/(scope|issues|handoff|human-todo|run-log)\.md|kotodute\/journals\/|kotodute\/lily\/(task|state|motoko-scope)\.md|powerpuff\/|\.pi\/|\.vibe\/|\.claude\/|\.opencode\//.test(command)) {
 				return { block: true, reason: "bash access to protected workflow paths is blocked; use read/write tools" };
 			}
 			if (role === "motoko" && takeoverStage === "execute") {
@@ -649,7 +665,7 @@ export default function powerpuffExtension(pi: any) {
 			const artifact = takeover
 				? takeoverStage === "recon"
 					? "kotodute/lily/motoko-scope.md"
-					: "kotodute/lily/handoff.md"
+					: "kotodute/handoff.md"
 				: isAdvisor
 					? advisorArtifact(params.role as AdvisorRole, runDir)
 					: runDir === "kotodute/"
@@ -666,9 +682,9 @@ export default function powerpuffExtension(pi: any) {
 				`Read and obey ${roleDefinition.warmup}.`,
 				`Task from ${requesterName}: ${params.task}`,
 				takeoverStage === "recon"
-					? "The user explicitly approved reconnaissance. Lily has stopped. Read the whole project as needed to reconstruct the system, root cause, and real control points. Do not modify product files and do not run bash. Write an evidence-backed execution proposal to kotodute/lily/motoko-scope.md, set its Status to READY_FOR_APPROVAL, update the work log, and set the Lily handoff status to AWAITING_MOTOKO_EXECUTION_APPROVAL. Stop without implementing."
+					? "The user explicitly approved reconnaissance. Lily has stopped. Read the whole project as needed to reconstruct the system, root cause, and real control points. Do not modify product files and do not run bash. Write an evidence-backed execution proposal to kotodute/lily/motoko-scope.md, set its Status to READY_FOR_APPROVAL, set kotodute/lily/state.md to AWAITING_MOTOKO_EXECUTION_APPROVAL, append evidence to the current project journal, update shared durable issues when needed, and keep kotodute/handoff.md short. Stop without implementing."
 					: takeoverStage === "execute"
-					? "The user reviewed kotodute/lily/motoko-scope.md and explicitly approved execution. Lily remains stopped. Treat that file as the frozen contract. Implement and verify directly within its allowed files and exact allowed commands, then update kotodute/lily/work-log.md and kotodute/lily/handoff.md. Do not delegate or silently expand scope."
+					? "The user reviewed kotodute/lily/motoko-scope.md and explicitly approved execution. Lily remains stopped. Treat that file as the frozen contract. Implement and verify directly within its allowed files and exact allowed commands, append details to the current project journal, update shared durable issues when needed, set kotodute/lily/state.md to a final non-awaiting status, and keep kotodute/handoff.md to current owner, task, status, source, active blocker, and one next action. Do not delegate or silently expand scope."
 					: isAdvisor
 					? `This is advisory work only. Do not modify OpenSpec or product files. Write a decision memo to ${artifact} with assumptions, evidence, options, recommendation, confidence, and unresolved questions; then return a concise status to Misato.`
 					: `Write the durable handoff to ${artifact}, validate it when bash is available, then return a concise status to Misato.`,
@@ -816,8 +832,8 @@ export default function powerpuffExtension(pi: any) {
 				return;
 			}
 			const root = path.resolve(ctx.cwd);
-			if (!fs.existsSync(path.join(root, "kotodute/lily/handoff.md"))) {
-				ctx.ui.notify("No Lily handoff found.", "error");
+			if (!fs.existsSync(path.join(root, "kotodute/lily/state.md"))) {
+				ctx.ui.notify("No Lily takeover state found.", "error");
 				return;
 			}
 			if (readLilyStatus(root) !== "AWAITING_MOTOKO_APPROVAL") {

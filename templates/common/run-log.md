@@ -3,9 +3,7 @@
 <!--
 Append-only routing memory. One row per completed or escalated task.
 
-Purpose: back the human's sense of "how often" with a record. The human's feel
-decides entry points and routing policy; this log keeps that feel honest and
-lets lessons accumulate as rubric cases instead of being re-learned.
+Purpose: back the human's sense of "how often" with routing/process memory. Detailed chronology and decisions belong in `journals/YYYY-MM.md`; this log keeps routing intuition honest and lets lessons accumulate as rubric cases instead of being re-learned.
 
 Misato appends a row when a run completes. Lily appends a row when a task
 completes or escalates. Humans prune and curate. This is a memory aid, not a

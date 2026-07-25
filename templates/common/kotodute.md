@@ -1,8 +1,8 @@
 # Kotodute - Handoff Format
 
-Role handoffs (`handoff.koto`) use Kotodute: a machine-first S-expression format for
-agent-to-agent state transfer. It is data, not executable Lisp - never evaluate it.
-Human surfaces (`scope.md`, `human-todo.md`) stay markdown; only handoffs use Kotodute.
+Internal role and run handoffs (`*.koto`) use Kotodute: a machine-first S-expression format for agent-to-agent state transfer. It is data, not executable Lisp - never evaluate it.
+
+Project-shared human surfaces (`handoff.md`, `issues.md`, `journals/YYYY-MM.md`, `human-todo.md`) and task contracts (`scope.md`, `lily/task.md`) stay Markdown. The shared human handoff never replaces role/run Koto.
 
 ## Root Form
 

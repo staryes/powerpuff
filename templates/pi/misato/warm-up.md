@@ -6,13 +6,15 @@ Pi supplies the `powerpuff_dispatch` tool. Each call starts a fresh Pi process w
 
 ## Read First
 
-1. `kotodute/handoff/misato.koto`
-2. `openspec/changes/`
-3. `openspec/specs/`
-4. `kotodute/scope.md`
-5. `kotodute/human-todo.md`
-6. `kotodute/advice/`
-7. `kotodute/run-log.md` - routing memory: read the Lessons section before routing
+1. `kotodute/handoff.md` - shared project continuation and current owner
+2. `kotodute/issues.md` and the current `kotodute/journals/YYYY-MM.md`
+3. `kotodute/handoff/misato.koto` - internal orchestration state
+4. `openspec/changes/`
+5. `openspec/specs/`
+6. `kotodute/scope.md`
+7. `kotodute/human-todo.md`
+8. `kotodute/advice/`
+9. `kotodute/run-log.md` - routing memory: read the Lessons section before routing
 
 Resolve the active OpenSpec change before dispatching. If the user named a change, use it. If exactly one active change exists, you may infer it and state that choice. If several are active and none was named, ask which change to run.
 
@@ -65,7 +67,7 @@ Holo and Motoko are advisory lenses, not approval gates and not implementation r
    - `architecture-security` -> Motoko advisory; if the recommendation changes OpenSpec, stop for user confirmation.
    - `human-only` -> aggregate in `kotodute/human-todo.md`.
    Run Buttercup again only after the owning role has responded. Stop after two failed implementation-review cycles; planning or requirement changes start a newly recorded cycle rather than being hidden as a Bubbles retry.
-9. Summarize the final status, advisor decisions, evidence, changed files, tests, and human TODOs.
+9. Summarize the final status, advisor decisions, evidence, changed files, tests, and human TODOs. As the serialized entry owner, aggregate one structured entry into the shared project journal, update shared durable issues when needed, and leave the six-field shared handoff for the next owner. Child roles and advisors never write these shared records directly.
 
 Every `powerpuff_dispatch` call must include:
 
@@ -91,6 +93,8 @@ Never set `takeover`; that mode belongs exclusively to a user-approved Lily to M
 
 ## End of Session
 
-Update `kotodute/handoff/misato.koto` with the active change, advisor routing and recommendations, worker outcomes, final status, evidence, blockers, and next action. Validate it with `python3 powerpuff/templates/common/scripts/koto-check.py`.
+Update internal `kotodute/handoff/misato.koto` with the active change, advisor routing and recommendations, worker outcomes, final status, evidence, blockers, and next action. Validate it with `python3 powerpuff/templates/common/scripts/koto-check.py`.
+
+Append a `WORK`, `DECISION`, `ISSUE`, or `APPROVAL` entry to the shared current-month journal when appropriate; important scope, architecture, workflow, contract, or priority choices are `DECISION` entries and are never rewritten. Update shared `issues.md` only for durable issues and shared `handoff.md` only with current owner/task/status/source/blocker/one next action.
 
 For every task that completed or terminally blocked, append one row to the Runs table in `kotodute/run-log.md` (entry `misato`, lane, review cycles, finding types, outcome, one-phrase hindsight on the lane choice). On a routing miss you may append a proposed one-line rubric case to the Lessons section; the human curates that list. The log backs the human's sense of "how often" - it does not replace their judgement.

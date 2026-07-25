@@ -1,6 +1,6 @@
 # Human TODO
 
-This is the human-execution surface for the Powerpuff agent workflow.
+This is the single project-shared human-execution surface for both Powerpuff and Lily workflows.
 
 Operations follow a three-tier model:
 
@@ -26,9 +26,7 @@ DEFER <optional note>
 
 Each TODO is one-time and bound to the plan state it cites. Agents verify the resulting environment state (lockfile changed, package importable, branch on remote), not this file's text.
 
-In parallel (vibe) mode, TODO ids are prefixed with the run's `<task-id>` (e.g. `TODO-<task-id>-001`)
-to avoid collisions between concurrent runs. Misato aggregates PENDING items across runs and
-presents them to you in one batch.
+In parallel mode, child roles write run-local TODOs with the run's `<task-id>` prefix (for example `TODO-<task-id>-001`) to avoid collisions. Misato is the serialized owner that aggregates those items here and presents them in one batch. Parallel children do not write this shared file directly.
 
 ---
 

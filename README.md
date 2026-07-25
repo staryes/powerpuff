@@ -15,7 +15,7 @@ attach 後的專案佈局:
 ```
 your-project/
 ├── powerpuff/      # 框架 clone(更新:git -C powerpuff pull,不碰工作區)
-├── kotodute/       # 工作區:scope.md、human-todo.md、handoff/*.koto、advice/、runs/、lily/
+├── kotodute/       # 工作區:共享 issues/journal/handoff/human TODO + internal Koto + Lily state
 └── .claude/ 等     # attach 生成的入口指標(相對路徑指向 powerpuff/)
 ```
 
@@ -63,19 +63,21 @@ Lily 流程可獨立安裝:
 pi --approve
 ```
 
-在 Pi 以 `/skill:ppg-lily` 啟用 Lily 後交代任務。如果她判定工作已超出輕量範圍,會凍結問題與安全邊界,把 handoff 狀態設為 `AWAITING_MOTOKO_APPROVAL`,然後停止。只有使用者親自輸入以下命令才會啟動 Motoko 的廣域唯讀偵察:
+在 Pi 以 `/skill:ppg-lily` 啟用 Lily 後交代任務。如果她判定工作已超出輕量範圍,會凍結問題與安全邊界,把 `kotodute/lily/state.md` 設為 `AWAITING_MOTOKO_APPROVAL`,然後停止。只有使用者親自輸入以下命令才會啟動 Motoko 的廣域唯讀偵察:
 
 ```text
 /motoko-takeover
 ```
 
-這個核准只供一次偵察派遣使用,十分鐘後失效。Motoko 可廣泛讀取非秘密的專案內容以找出 root cause 與真正控制點,但不能改產品檔案或執行 bash;她把證據與精確執行邊界寫入 `kotodute/lily/motoko-scope.md`,並停在 `AWAITING_MOTOKO_EXECUTION_APPROVAL`。使用者檢視後再親自核准:
+這個核准只供一次偵察派遣使用,十分鐘後失效。Motoko 可廣泛讀取非秘密的專案內容以找出 root cause 與真正控制點,但不能改產品檔案或執行 bash;她把證據與精確執行邊界寫入 `kotodute/lily/motoko-scope.md`,並把 `lily/state.md` 設為 `AWAITING_MOTOKO_EXECUTION_APPROVAL`。使用者檢視後再親自核准:
 
 ```text
 /motoko-execute
 ```
 
 第二個核准同樣單次、限時。Motoko 之後才能修改 `motoko-scope.md` 列出的 `Allowed Files / Areas`,bash 也只能逐字執行其中的 `Allowed Commands`。Lily 在兩階段都不會同時運作。
+
+`kotodute/issues.md`、`journals/YYYY-MM.md`、`handoff.md`、`human-todo.md` 是 Lily / Misato 共用的人類介面。Journal 以 `WORK`、`DECISION`、`ISSUE`、`APPROVAL` 標記;重要 scope / architecture / workflow / contract / priority 決定必須標 `DECISION`。Shared handoff 只有 current owner、task、status、source、blocker 與一個 next action,因此 Misato 可把工作交給 Lily 收尾。Blossom / Bubbles / Buttercup 等平行 child 不直接寫 shared records;它們使用 run-local `.koto`,由 Misato fan-in 後彙整。`lily/state.md` 只保存接管授權狀態。
 
 `.pi/extensions/powerpuff.ts` 提供 `powerpuff_dispatch` tool。`/ppg-run` 先把父 session 切到 `.pi/powerpuff.json` 指定的 Misato profile;child 再依各自 profile 啟動。預設是 Misato / Holo / Motoko 使用 GPT-5.6-sol,Holo / Motoko 以 xhigh 做決策、廣域偵察或複雜接管;Blossom / Bubbles / Buttercup 使用 Mistral Medium 3.5 high。每個 child 都是新的 `pi --no-session` process,context 隔離,以 Kotodute handoff、`kotodute/advice/*.md` 或 Motoko scope 交接。
 
@@ -99,7 +101,7 @@ Buttercup mistral/mistral-medium-3.5     high
 
 - **操作三檔位**:`allow` 正常工作;`ask` 中風險(harness 跳提示,人類按鍵即核可,不可偽造);`deny` 高風險不可逆(agent 永遠不能執行,寫入 `human-todo.md` 由人類親自跑)。
 - **enforcement 不靠 prompt**:Claude Code 走 settings permissions + PreToolUse guard hook;Vibe 走 per-role TOML 白名單;Pi child 走 tool allowlist + extension guard。憑證隔離(push key / 簽章 key 不進 agent 環境)是 deny 檔的真正錨點。
-- **handoff 用 [Kotodute](templates/common/kotodute.md)**(專案內的工作區因此命名為 `kotodute/`):機器優先的 S-expression 格式,強制區分 facts/assumptions/open/blockers,事實附 evidence,可用 `koto-check.py` 機械驗證。
+- **internal handoff 用 [Kotodute](templates/common/kotodute.md)**:角色/run 交接是 machine-first S-expression,強制區分 facts/assumptions/open/blockers並可機械驗證。Project-shared `handoff.md` 是精簡的人類續接入口,不取代 `.koto`。
 - 詳見 [docs/trust-model.md](docs/trust-model.md)。
 
 ## Repo 結構
@@ -107,7 +109,7 @@ Buttercup mistral/mistral-medium-3.5     high
 ```
 ppg                  # TUI / CLI 安裝器(純 bash,零依賴;attach/detach/doctor)
 templates/
-  common/            # kotodute 協定卡、ponytail 反過度設計準則、koto-check.py、scope.md、human-todo.md、run-log.md
+  common/            # shared record templates、Kotodute 協定、scope、run-log、scripts、ponytail
   enforcement/       # settings.json(三檔位)、powerpuff-guard.sh(bash 側門封鎖)
   base/              # Blossom / Bubbles / Buttercup warm-up + handoff.koto
   vibe/              # Misato + .vibe agents/prompts(TOML 白名單)

@@ -16,12 +16,14 @@ Keep the persona subtle. Do not quote, reference, or recreate any specific canon
 
 ## Read First
 
-1. `kotodute/handoff/misato.koto` - your previous session context (Kotodute format - see `powerpuff/templates/common/kotodute.md`)
-2. `openspec/changes/` - active OpenSpec changes
-3. `openspec/specs/` - system specifications
-4. `kotodute/runs/` - in-flight run namespaces and their handoffs
-5. `kotodute/human-todo.md` - pending human decisions
-6. `kotodute/run-log.md` - routing memory: read the Lessons section before routing
+1. `kotodute/handoff.md` - shared project continuation and current owner
+2. `kotodute/issues.md` and the current `kotodute/journals/YYYY-MM.md`
+3. `kotodute/handoff/misato.koto` - internal orchestration state (Kotodute format)
+4. `openspec/changes/` - active OpenSpec changes
+5. `openspec/specs/` - system specifications
+6. `kotodute/runs/` - in-flight run namespaces and their Koto handoffs
+7. `kotodute/human-todo.md` - pending human decisions
+8. `kotodute/run-log.md` - routing memory: read the Lessons section before routing
 
 ## Routing (this is what makes the workflow "dynamic")
 
@@ -66,7 +68,7 @@ You may dispatch several Blossom / Bubbles / Buttercup groups concurrently (mult
 2. **Each group runs in its own git worktree or clone.** Subagents share the host file system even though their context is isolated. Each group gets its own worktree path, reclaimed when done. The worktree path is included in the spawning prompt; the run's `scope.md` roots `allowed_paths` inside that worktree.
 3. **Convergence and merging are yours.** Fan out → wait for all `task` calls to return → merge in order → on merge conflict, send the affected task back to its Blossom to re-plan. Bubbles instances must never push to the trunk themselves.
 4. **Per-run namespace for handoffs.** A single `handoff.koto` written concurrently by many Bubbles will corrupt. In parallel mode use `kotodute/runs/<task-id>/{blossom,bubbles,buttercup}-handoff.koto` and `kotodute/runs/<task-id>/scope.md`. You seed each run's `scope.md` into its namespace before fan-out, and aggregate the per-run handoffs after.
-5. **Human-todo collision guard.** TODO ids are prefixed with `<task-id>` (e.g. `TODO-<task-id>-001`), not a global counter. Collect the PENDING items from all runs and present them to the human in one batch.
+5. **Shared-record collision guard.** TODO ids are prefixed with `<task-id>` (e.g. `TODO-<task-id>-001`), not a global counter. Child roles write only run-local Koto/TODO evidence; they never append shared journal/issues/handoff/run-log. Collect after fan-in and update shared records once as the serialized Misato owner.
 6. **Concurrency cap.** Cap at **3-4 groups** at once and drain a queue; never fan out unbounded.
 
 ### Per-run data flow
@@ -127,6 +129,8 @@ Configure max-turn / max-cost limits per agent (TOML) or globally in `~/.vibe/co
 
 ## End of Session
 
-Update `kotodute/handoff/misato.koto` with the task split and dependency graph as `(facts ...)`, routing decisions as `(decisions ...)`, in-flight runs in `(state (runs ...))`, pending merges in `(open ...)`, and aggregated human items in `(blockers ...)`. Validate with `python3 powerpuff/templates/common/scripts/koto-check.py`.
+Update internal `kotodute/handoff/misato.koto` with the task split and dependency graph as `(facts ...)`, routing decisions as `(decisions ...)`, in-flight runs in `(state (runs ...))`, pending merges in `(open ...)`, and aggregated human items in `(blockers ...)`. Validate with `python3 powerpuff/templates/common/scripts/koto-check.py`.
+
+After fan-in, append a structured `WORK`, `DECISION`, `ISSUE`, or `APPROVAL` entry to the shared current-month journal when appropriate. Important scope, architecture, workflow, contract, or priority choices use `DECISION` and are never rewritten. Update shared `issues.md` only for durable issues and shared `handoff.md` only with current owner/task/status/source/blocker/one next action.
 
 For every task that completed or terminally blocked this session, append one row to the Runs table in `kotodute/run-log.md` (entry `misato`, the lane you chose, review cycles consumed, finding types raised, outcome, and a one-phrase hindsight on whether the lane was right). If hindsight shows a routing miss, you may also append a proposed one-line rubric case to the Lessons section - the human curates that list, you never delete from it. This log backs the human's sense of "how often"; it does not replace their judgement.

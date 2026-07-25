@@ -29,15 +29,17 @@ ask 清單保持短而具體,否則會養成反射性按 y 的習慣,ask 就退�
 
 Misato 路線中的 Holo / Motoko 是 advisory lens,不在 approval chain。Pi child guard 只允許它們讀專案並寫各自的 `kotodute/advice/*.md`;它們不能改 OpenSpec、產品檔案或 reviewer 結論。顧問建議若會改變需求或架構,Misato 必須停下來交由人類拍板。
 
-Lily → Motoko 是另一種明確授權的 sequential takeover。Lily 只能提出請求並停止,不能自行派遣。使用者先親自呼叫 `/motoko-takeover`:第一枚單次、限時、記憶體內 token 只允許廣域 read-only reconnaissance;Motoko 只能寫 `motoko-scope.md` 與接管紀錄。她提出證據、精確 allowed areas 與逐字 commands 後停止。使用者檢視並親自呼叫 `/motoko-execute`,第二枚同樣不可重放或平行使用的 token 才允許實作。執行期 Motoko 的 write/edit 僅限已確認的 `motoko-scope.md`,bash 僅接受其中逐字列出的單一命令;全域 deny 與 protected paths 仍優先。
+Lily → Motoko 是另一種明確授權的 sequential takeover。Lily 只能提出請求並停止,不能自行派遣。`kotodute/lily/state.md` 是唯一 durable authorization status;shared handoff或legacy Lily handoff都不參與 gate。使用者先親自呼叫 `/motoko-takeover`:第一枚單次、限時、記憶體內 token只允許廣域 read-only reconnaissance;Motoko提出 `motoko-scope.md` 後停止。使用者檢視並親自呼叫 `/motoko-execute`,第二枚不可重放或平行使用的 token才允許 scope內實作。Motoko與Lily是serialized owner,可依序更新shared records;全域deny與protected paths仍優先。
 
-## Handoff:Kotodute
+## Shared records 與 internal Kotodute
 
-角色間狀態傳遞用 Kotodute(S-expression,見 `powerpuff/templates/common/kotodute.md`):
+`kotodute/issues.md`、monthly journal、六欄位 `handoff.md` 與 `human-todo.md` 是 project-shared 人類介面。只有 serialized entry owner(Misato、Lily、approved takeover Motoko)彙整;parallel/advisory children不得直接寫 shared journal/issues/handoff/run-log。Journal的重要決定使用可搜尋的 `— DECISION —` heading,反轉以新entry supersede舊entry。
 
-- 強制把 **facts(附 evidence)** 與 **assumptions(附 basis)** 分開,不確定性不能藏在精簡措辭裡
-- `koto-check.py` 提供結構性機械驗證;讀的人先驗證再信任
-- scope.md 與 human-todo.md 是人類介面,維持 markdown
+角色/run內部狀態傳遞使用 Kotodute(S-expression):
+
+- 強制把 **facts(附 evidence)** 與 **assumptions(附 basis)** 分開
+- `koto-check.py` 提供結構性驗證;讀的人先驗證再信任
+- shared Markdown handoff不取代internal `.koto`,internal Koto也不作人類續接入口
 
 ## scope.md 凍結
 

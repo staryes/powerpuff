@@ -13,7 +13,7 @@
 set -eu
 
 PPG_ROOT=$(cd "$(dirname "$0")" && pwd)
-VERSION="0.4.0"
+VERSION="0.5.0"
 
 BOLD=$'\033[1m'; DIM=$'\033[2m'; REV=$'\033[7m'; RESET=$'\033[0m'
 GREEN=$'\033[32m'; YELLOW=$'\033[33m'; CYAN=$'\033[36m'
@@ -133,6 +133,13 @@ copy_into() { # copy_into SRC REL_DST  (REL_DST relative to TARGET)
   cp "$PPG_ROOT/$1" "$TARGET/$2"
 }
 
+init_into() { # initialize state without overwriting an existing record
+  if [ -e "$TARGET/$2" ]; then
+    return 0
+  fi
+  copy_into "$1" "$2"
+}
+
 write_outside() { # write_outside SRC REL_DST - file outside state dirs, recorded
   if [ -e "$TARGET/$2" ]; then
     warn "exists, skipped: $2"
@@ -230,10 +237,18 @@ cmd_attach() {
 
 install_state() {
   # 工作區 kotodute/:純狀態。框架(warm-up、協定卡、scripts、hook)留在 ./powerpuff
-  local st="$TARGET/kotodute"
-  mkdir -p "$st/handoff" "$st/archive"
-  copy_into templates/common/human-todo.md kotodute/human-todo.md
-  copy_into templates/common/run-log.md kotodute/run-log.md
+  local st="$TARGET/kotodute" month journal
+  mkdir -p "$st/handoff" "$st/archive" "$st/journals"
+  init_into templates/common/issues.md kotodute/issues.md
+  init_into templates/common/handoff.md kotodute/handoff.md
+  init_into templates/common/human-todo.md kotodute/human-todo.md
+  init_into templates/common/run-log.md kotodute/run-log.md
+  month=$(date +%Y-%m)
+  journal="$st/journals/$month.md"
+  if [ ! -e "$journal" ]; then
+    copy_into templates/common/journal.md "kotodute/journals/$month.md"
+    sed -i.bak "1s/YYYY-MM/$month/" "$journal" && rm -f "$journal.bak"
+  fi
   : > "$st/archive/.gitkeep"
   record dir kotodute
 
@@ -242,27 +257,32 @@ install_state() {
     if has_word "$g" "$GIRLS"; then
       need_task=1
       if [ "$g" = misato ]; then
-        copy_into templates/vibe/misato/handoff.koto kotodute/handoff/misato.koto
+        init_into templates/vibe/misato/handoff.koto kotodute/handoff/misato.koto
         mkdir -p "$st/runs"; : > "$st/runs/.gitkeep"
         if has_word pi "$HARNESS"; then
           mkdir -p "$st/advice"; : > "$st/advice/.gitkeep"
         fi
       else
-        copy_into "templates/base/$g/handoff.koto" "kotodute/handoff/$g.koto"
+        init_into "templates/base/$g/handoff.koto" "kotodute/handoff/$g.koto"
       fi
     fi
   done
-  [ "$need_task" = 1 ] && copy_into templates/common/scope.md kotodute/scope.md
+  [ "$need_task" = 1 ] && init_into templates/common/scope.md kotodute/scope.md
 
   if has_word lily "$GIRLS"; then
     mkdir -p "$st/lily/archive"
-    local f
-    for f in task.md work-log.md handoff.md human-todo.md motoko-scope.md; do
-      copy_into "templates/lily/$f" "kotodute/lily/$f"
+    local f legacy=0
+    for f in task.md state.md motoko-scope.md; do
+      init_into "templates/lily/$f" "kotodute/lily/$f"
     done
+    for f in issues.md handoff.md human-todo.md work-log.md; do
+      [ -e "$st/lily/$f" ] && legacy=1
+    done
+    [ -d "$st/lily/journals" ] && legacy=1
+    [ "$legacy" = 0 ] || warn "legacy Lily records detected; preserve them until their content is merged into shared kotodute records"
     : > "$st/lily/archive/.gitkeep"
   fi
-  note "工作區 kotodute/ 就緒(框架在 ./powerpuff,相對路徑引用)"
+  note "工作區 kotodute/ 就緒(共享 records 只在不存在時建立)"
 }
 
 girl_commands() { # echo the command stub names for selected girls
@@ -385,7 +405,7 @@ description: Powerpuff $title (motoko) - advisory analysis or user-approved Lily
 You are Motoko in this project's Powerpuff workflow.
 Read \`powerpuff/personas/motoko.md\` and follow its instructions.
 Under Misato you are advisory-only and write \`kotodute/advice/motoko.md\`.
-Under Lily you may act only through the two-stage user approval flow: \`/motoko-takeover\` grants broad read-only reconnaissance, then \`/motoko-execute\` grants execution inside the reviewed \`kotodute/lily/motoko-scope.md\`. Update Lily's work log and handoff in both stages.
+Under Lily you may act only through the two-stage user approval flow: \`/motoko-takeover\` grants broad read-only reconnaissance, then \`/motoko-execute\` grants execution inside the reviewed \`kotodute/lily/motoko-scope.md\`. Update \`kotodute/lily/state.md\` plus the project-shared journal, issues, and short handoff in both stages.
 SKILL
       fi
       record file "$rel"
@@ -402,7 +422,7 @@ description: Lightweight Magilumiere workflow (Aoi Riri) - plan, execute, check 
 ---
 You are 葵 リリー (Aoi Rirī) in this project's lightweight Magilumiere workflow.
 Read `powerpuff/templates/lily/warm-up.md` and follow its instructions.
-The working dir is `./kotodute/lily/`. Arguments may name the stage: plan / exec / check.
+Read project continuation from `kotodute/handoff.md`; Lily's task is `kotodute/lily/task.md` and takeover status is `kotodute/lily/state.md`. Arguments may name the stage: plan / exec / check.
 If the task is too large for this lightweight workflow, freeze the problem and hard safety boundary, stop with AWAITING_MOTOKO_APPROVAL, and ask the user to run `/motoko-takeover`. Motoko then proposes an evidence-backed scope; only the user's later `/motoko-execute` may grant execution. Never dispatch Motoko yourself.
 SKILL
       record file "$rel"
@@ -471,7 +491,7 @@ cmd_detach() {
 # ------------------------------------------------------------- doctor ---
 
 cmd_doctor() {
-  local TARGET="" ok=1 f harness
+  local TARGET="" ok=1 f harness girls month
   while [ $# -gt 0 ]; do
     case "$1" in
       --target) TARGET=$2; shift 2 ;;
@@ -482,6 +502,7 @@ cmd_doctor() {
   TARGET=$(cd "$TARGET" && pwd)
   [ -f "$TARGET/kotodute/.ppg-manifest" ] || die "not attached (no manifest)"
   harness=$(sed -n 's/^meta harness //p' "$TARGET/kotodute/.ppg-manifest")
+  girls=$(sed -n 's/^meta girls //p' "$TARGET/kotodute/.ppg-manifest")
   sed -n 's/^meta //p' "$TARGET/kotodute/.ppg-manifest"
   echo
   while read -r kind p; do
@@ -490,6 +511,15 @@ cmd_doctor() {
         if [ -e "$TARGET/$p" ]; then note "ok: $p"; else warn "missing: $p"; ok=0; fi ;;
     esac
   done < "$TARGET/kotodute/.ppg-manifest"
+  month=$(date +%Y-%m)
+  for f in issues.md handoff.md human-todo.md run-log.md "journals/$month.md"; do
+    if [ -e "$TARGET/kotodute/$f" ]; then note "ok: kotodute/$f"; else warn "missing shared record: kotodute/$f"; ok=0; fi
+  done
+  if has_word lily "$girls"; then
+    for f in task.md state.md motoko-scope.md; do
+      if [ -e "$TARGET/kotodute/lily/$f" ]; then note "ok: kotodute/lily/$f"; else warn "missing Lily state: kotodute/lily/$f"; ok=0; fi
+    done
+  fi
   for f in "$TARGET"/kotodute/handoff/*.koto "$TARGET"/kotodute/runs/*/*.koto; do
     [ -e "$f" ] || continue
     python3 "$PPG_ROOT/templates/common/scripts/koto-check.py" "$f" || ok=0
