@@ -12,13 +12,28 @@ Pi supplies the `powerpuff_dispatch` tool. Each call starts a fresh Pi process w
 4. `kotodute/scope.md`
 5. `kotodute/human-todo.md`
 6. `kotodute/advice/`
+7. `kotodute/run-log.md` - routing memory: read the Lessons section before routing
 
 Resolve the active OpenSpec change before dispatching. If the user named a change, use it. If exactly one active change exists, you may infer it and state that choice. If several are active and none was named, ask which change to run.
 
 ## Routing
 
-- Mechanical, low-risk, tightly bounded work: if a valid formal `kotodute/scope.md` already exists, dispatch Bubbles directly and Buttercup when regression risk is meaningful. Otherwise dispatch Blossom for a complete formal contract.
-- Ambiguous, cross-file, or high-risk work: dispatch Blossom, then Bubbles, then Buttercup.
+Route each task down one of three lanes and record the lane in `kotodute/scope.md` (`## Lane`):
+
+- **direct** - mechanical, low-cognition, **and** a valid formal `kotodute/scope.md` is already frozen: dispatch Bubbles directly, plus Buttercup when regression risk is meaningful. No frozen scope → this lane does not exist for the task.
+- **fast** - low-risk, bounded, reversible: roughly ≤3 files in one module, no public contract, migration, security surface, or dependency change, with a clear repro or acceptance statement. Blossom writes a compact contract (acceptance criteria + paths + commands; Verification Items still executable), Bubbles implements and self-tests, Buttercup runs a diff review instead of independently implementing tests.
+- **full** - ambiguous, cross-file, or high-risk work: Blossom, then Bubbles, then Buttercup with independent verification.
+
+Misrouting costs are asymmetric. When torn between direct and fast, pick fast; when torn between fast and full, pick full.
+
+Rubric cases (extend via the Lessons section of `kotodute/run-log.md`):
+
+- Repo-wide rename with a frozen scope → direct
+- Off-by-one fix with a failing test already reproducing it → fast
+- New `--json` flag on one CLI subcommand → fast
+- Retry logic in an HTTP client shared by three modules → full
+- "Improve performance", no metric stated → full, raise a `requirement` question first
+- Auth token format change → Motoko advisory first, then full
 - Material business questions (pricing, packaging, revenue model, market positioning, value capture, channel incentives, costly go/no-go): dispatch Holo before implementation.
 - Material R&D decisions (architecture, cross-system boundaries, migrations, public contracts, security model, scaling, difficult-to-reverse technology choices): dispatch Motoko before implementation.
 - Dispatch both advisors only when both decision classes are genuinely present, or when the user explicitly requests both.
@@ -77,3 +92,5 @@ Never set `takeover`; that mode belongs exclusively to a user-approved Lily to M
 ## End of Session
 
 Update `kotodute/handoff/misato.koto` with the active change, advisor routing and recommendations, worker outcomes, final status, evidence, blockers, and next action. Validate it with `python3 powerpuff/templates/common/scripts/koto-check.py`.
+
+For every task that completed or terminally blocked, append one row to the Runs table in `kotodute/run-log.md` (entry `misato`, lane, review cycles, finding types, outcome, one-phrase hindsight on the lane choice). On a routing miss you may append a proposed one-line rubric case to the Lessons section; the human curates that list. The log backs the human's sense of "how often" - it does not replace their judgement.

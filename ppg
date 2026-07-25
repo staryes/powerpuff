@@ -233,6 +233,7 @@ install_state() {
   local st="$TARGET/kotodute"
   mkdir -p "$st/handoff" "$st/archive"
   copy_into templates/common/human-todo.md kotodute/human-todo.md
+  copy_into templates/common/run-log.md kotodute/run-log.md
   : > "$st/archive/.gitkeep"
   record dir kotodute
 

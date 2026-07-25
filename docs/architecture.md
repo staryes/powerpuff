@@ -18,8 +18,11 @@ Vibe 以 `task` tool 派遣角色。Pi 以 project-local extension 的 `powerpuf
 
 Lily 或 Misato 是使用者在任務開始前選擇的入口;Misato 無權啟用、切換或把任務轉派給 Lily。以下動態路由只發生在使用者已選擇的 Misato / Powerpuff 管線內:
 
-- 機械性、低認知(批次改名、重複套用同一 pattern)→ 只有已存在完整且凍結的正式 `scope.md` 時才可直接派 Bubbles;否則由 Blossom 建立完整正式契約
-- 需要判斷、有歧義、跨檔耦合 → 完整管線 Blossom → Bubbles → Buttercup
+- **direct**:機械性、低認知(批次改名、重複套用同一 pattern)→ 只有已存在完整且凍結的正式 `scope.md` 時才可直接派 Bubbles;否則此 lane 不存在
+- **fast**:低風險、有界、可逆(約 ≤3 檔、單一模組、不碰公開契約 / 遷移 / 安全面 / 依賴、有明確 repro 或驗收敘述)→ Blossom 寫精簡契約,Bubbles 實作自測,Buttercup 只做 diff review(跑既有 Reviewer Commands、驗 Bubbles 自測證據,不獨立實作測試);她若發現任務被錯分,以 `contract` finding 退回升級 full
+- **full**:需要判斷、有歧義、跨檔耦合、碰公開契約 / 遷移 / 安全 → 完整管線 Blossom → Bubbles → Buttercup 獨立驗證
+
+Lane 由 Misato 判定並記在 `scope.md` 的 `## Lane`,隨契約一起凍結。誤判成本不對稱:direct / fast 之間猶豫選 fast,fast / full 之間猶豫選 full。路由判例與運行紀錄集中在 `kotodute/run-log.md`:Misato 路由前讀 Lessons 判例,任務結束後追加一列(入口、lane、review cycle 數、finding 類型、事後檢討);誤判時可提議新判例,由人類修剪。這份 log 是給人類「頻繁與否」的感覺一個對照紀錄,不是自動決策機制。
 - 重大商業問題(定價、包裝、價值捕獲、通路誘因、go/no-go)→ 實作前派 Holo
 - 重大研發決策(架構、遷移、公開契約、安全、規模、不可逆技術選型)→ 實作前派 Motoko
 
@@ -28,6 +31,8 @@ Advisor 不是固定 stage。若建議會實質改變 OpenSpec,Misato 必須停�
 Buttercup 的退件依問題所有權分流,不一律丟回 Bubbles:`implementation` → Bubbles;`contract` → Blossom 重新凍結 scope;`requirement` → 使用者 / OpenSpec;`architecture-security` → Motoko advisory;`human-only` → 使用者。只有 implementation finding 算同一個實作 review cycle。
 
 Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛系統偵察、深層 root-cause 或攻防分析,Lily 凍結問題與安全邊界、寫入 `AWAITING_MOTOKO_APPROVAL` 並停止。使用者親自執行 `/motoko-takeover` 後,Pi 先啟動 Motoko 的廣域唯讀 reconnaissance;她可讀非秘密的專案內容,但只能寫 `kotodute/lily/motoko-scope.md` 與工作紀錄。Motoko 自己根據證據提出精確的修改檔案、命令與檢查計畫,狀態轉為 `AWAITING_MOTOKO_EXECUTION_APPROVAL`。使用者檢視後親自執行 `/motoko-execute`,才會給第二枚一次性 token,讓 Motoko 在自己提出且人類確認的 scope 內直接完成實作與檢查。Lily 全程不與她並行。這不是 advisor stage,而是 owner 的 sequential replacement。
+
+使用者在 `AWAITING_MOTOKO_APPROVAL` 時另有第三個選項:不核准接管,改把 Lily 凍結的問題(`kotodute/lily/task.md`)轉交 Misato 管線重跑——升級所做的凍結工作不會白費。當任務需要的是三人組的獨立驗證而非 Motoko 的單人接管時,這往往是更好的選擇;Lily 記下 `rerouted-to-misato` 後停止,自己永不派遣 Misato。
 
 ## 狀態走檔案,不走對話
 
@@ -49,8 +54,9 @@ Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛
 ```
 powerpuff/               # 框架 clone:ppg、templates/(warm-up、協定卡、scripts、hook)
 kotodute/                # 工作區(clean 模式下是巢狀 git repo)
-  scope.md               # 當前任務契約(Blossom 寫,執行期凍結)
+  scope.md               # 當前任務契約(Blossom 寫,執行期凍結;含 Lane)
   human-todo.md          # 人類執行面(deny 檔指令佇列)
+  run-log.md             # 路由記憶:Lessons 判例 + 每任務一列的運行紀錄(人類修剪)
   handoff/<girl>.koto    # 角色狀態(Kotodute)
   advice/{holo,motoko}.md # 按需決策 memo
   runs/<task-id>/        # 並行模式 per-run namespace

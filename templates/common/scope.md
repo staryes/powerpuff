@@ -6,6 +6,15 @@
 
 <!-- e.g. openspec/changes/add-dark-mode/ -->
 
+## Lane
+
+<!--
+direct | fast | full - set by Misato's routing, recorded here by Blossom.
+fast = compact contract; Buttercup does a diff review (no independent test
+implementation). full = complete contract + independent verification.
+Frozen with the rest of this file.
+-->
+
 ## Goal
 
 ## I/O Contract
