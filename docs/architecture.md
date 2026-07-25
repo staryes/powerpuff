@@ -1,17 +1,18 @@
 # Architecture
 
-## 四層動態編排(Vibe-native 完整形)
+## 四層動態編排
 
 | Layer | 角色 | 職責 |
 |---|---|---|
-| 0 | Misato(Orchestrator / Router) | 專案層級拆任務、判複雜度、路由、fan-out / 收集 / 合併。使用者面對的 Vibe agent。 |
+| A | Holo / Motoko(Advisors) | Misato 路線中按需提供商業 / 研發決策 memo;不實作、不核准、不改 OpenSpec。 |
+| 0 | Misato(Orchestrator / Router) | 專案層級拆任務、判複雜度、路由、fan-out / 收集 / 合併。使用者面對的 Vibe 或 Pi agent。 |
 | 1 | Blossom(Planner) | 單一任務的規劃:I/O contract + 驗證項目,精確到能直接寫測試。 |
 | 2 | Bubbles(Executor) | 實作;看得到驗證 spec,交棒前先自測。 |
 | 3 | Buttercup(Test / Review) | 從 spec 獨立實作測試 → 執行 → 回報/退回 + diff review + 越界檢查。 |
 
 `across vs within` 是 Layer 0 與 Layer 1 的分界:Misato 決定**做什麼、邊界、順序**(跨任務);Blossom 決定**這個任務怎麼寫、怎麼證明正確**(任務內)。Misato 拆到「Blossom 能接手規劃」的粒度為止。
 
-沒有 Vibe 時(Claude Code / OpenCode / pi),三人組以 slash command / skill 形式逐角色手動驅動,同樣的檔案協定;Misato 命令仍可作為平行介面,但子代理派遣只在 Vibe 內可用。
+Vibe 以 `task` tool 派遣角色。Pi 以 project-local extension 的 `powerpuff_dispatch` tool 啟動獨立 child process,依 `.pi/powerpuff.json` 選擇每個角色的 model / thinking level,並以 Kotodute 交接。Claude Code / OpenCode 目前仍以 slash command 逐角色手動驅動。
 
 ## 路由(動態的本質)
 
@@ -19,6 +20,12 @@
 
 - 機械性、低認知(批次改名、重複套用同一 pattern)→ 跳過 Blossom 細部規劃,直接派 Bubbles 帶薄 spec;或路由給輕量的 Lily 工作流
 - 需要判斷、有歧義、跨檔耦合 → 完整管線 Blossom → Bubbles → Buttercup
+- 重大商業問題(定價、包裝、價值捕獲、通路誘因、go/no-go)→ 實作前派 Holo
+- 重大研發決策(架構、遷移、公開契約、安全、規模、不可逆技術選型)→ 實作前派 Motoko
+
+Advisor 不是固定 stage。若建議會實質改變 OpenSpec,Misato 必須停下來取得人類確認;不能以「顧問說了」當成自動改需求的授權。
+
+Lily 另有一條互斥的 escalation 路線。當小任務實際上需要廣泛系統偵察、深層 root-cause 或攻防分析,Lily 先凍結 task packet、寫入 `AWAITING_MOTOKO_APPROVAL` 並停止。使用者親自執行 `/motoko-takeover` 後,Pi 才發出一次性 token 啟動 Motoko;Motoko 直接完成實作與檢查,Lily 不與她同時運作。這不是 advisor stage,而是 owner 的 sequential replacement。
 
 ## 狀態走檔案,不走對話
 
@@ -43,13 +50,16 @@ kotodute/                # 工作區(clean 模式下是巢狀 git repo)
   scope.md               # 當前任務契約(Blossom 寫,執行期凍結)
   human-todo.md          # 人類執行面(deny 檔指令佇列)
   handoff/<girl>.koto    # 角色狀態(Kotodute)
+  advice/{holo,motoko}.md # 按需決策 memo
   runs/<task-id>/        # 並行模式 per-run namespace
   lily/                  # 選裝:輕量工作流狀態(task/work-log/handoff/human-todo)
   archive/
 .claude/commands/        # slash 入口(相對路徑薄指標)
 .vibe/agents|prompts/    # Vibe 角色定義(TOML 白名單 = enforcement)
 .opencode/commands/      # → symlink 到 .claude/commands
-.pi/skills/ppg-*/        # pi skill 入口
+.pi/skills/ppg-*/        # Pi role skill 入口
+.pi/extensions/          # powerpuff_dispatch + /ppg-run + /motoko-takeover
+.pi/powerpuff.json       # Pi per-role model / thinking profiles
 ```
 
 注意:scope.md 的凍結檢查在狀態目錄自身的 git 歷史上跑(`git -C kotodute log -- scope.md`),clean / tracked 兩種模式皆成立。

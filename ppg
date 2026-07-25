@@ -13,7 +13,7 @@
 set -eu
 
 PPG_ROOT=$(cd "$(dirname "$0")" && pwd)
-VERSION="0.1.0"
+VERSION="0.3.1"
 
 BOLD=$'\033[1m'; DIM=$'\033[2m'; REV=$'\033[7m'; RESET=$'\033[0m'
 GREEN=$'\033[32m'; YELLOW=$'\033[33m'; CYAN=$'\033[36m'
@@ -183,12 +183,14 @@ cmd_attach() {
   [ -n "$GIRLS" ]   || die "no girls selected"
   case "$MODE" in clean|tracked) ;; *) die "mode must be clean|tracked" ;; esac
 
-  # misato orchestrates the trio - pull them in; misato is vibe-native
+  # misato orchestrates the trio - pull them in; automatic dispatch is Vibe/Pi-native
   if has_word misato "$GIRLS"; then
     for g in blossom bubbles buttercup; do
       has_word "$g" "$GIRLS" || GIRLS="$GIRLS $g"
     done
-    has_word vibe "$HARNESS" || warn "misato 的 task-tool dispatch 只在 vibe 內可用;其他 harness 僅作為平行介面"
+    if ! has_word vibe "$HARNESS" && ! has_word pi "$HARNESS"; then
+      warn "misato 的自動派遣只在 vibe / pi 內可用;其他 harness 僅作為平行介面"
+    fi
   fi
   # opencode commands link to claude's - need the stubs either way
 
@@ -219,7 +221,11 @@ cmd_attach() {
   else
     note "tracked 模式:請自行 git add / commit 新檔案。"
   fi
-  warn "首次使用請跑 security test:要求 agent 'git push'(應被擋)、bash 寫入 scope.md(應被擋)、裝套件(應跳 ask prompt)。"
+  if has_word pi "$HARNESS"; then
+    warn "Pi security test:child 的 git push、bash 寫 scope.md、依賴變更都應被 guard 擋下;依賴需求改寫入 human TODO。"
+  else
+    warn "首次使用請跑 security test:要求 agent 'git push'(應被擋)、bash 寫入 scope.md(應被擋)、裝套件(應跳 ask prompt)。"
+  fi
 }
 
 install_state() {
@@ -237,6 +243,9 @@ install_state() {
       if [ "$g" = misato ]; then
         copy_into templates/vibe/misato/handoff.koto kotodute/handoff/misato.koto
         mkdir -p "$st/runs"; : > "$st/runs/.gitkeep"
+        if has_word pi "$HARNESS"; then
+          mkdir -p "$st/advice"; : > "$st/advice/.gitkeep"
+        fi
       else
         copy_into "templates/base/$g/handoff.koto" "kotodute/handoff/$g.koto"
       fi
@@ -312,11 +321,15 @@ install_vibe() {
 }
 
 install_pi() {
-  local g title
+  local g title advisors=""
+  if has_word misato "$GIRLS" || has_word lily "$GIRLS"; then
+    write_outside templates/pi/extensions/powerpuff.ts ".pi/extensions/powerpuff.ts"
+    write_outside templates/pi/powerpuff.json ".pi/powerpuff.json"
+  fi
   for g in $GIRLS; do
     [ "$g" = lily ] && continue
     case "$g" in
-      misato)    title="Orchestrator (vibe-native; here as a parallel surface)" ;;
+      misato)    title="Orchestrator (Pi-native child-process dispatch)" ;;
       blossom)   title="Planner" ;;
       bubbles)   title="Executor" ;;
       buttercup) title="Reviewer" ;;
@@ -325,7 +338,7 @@ install_pi() {
     if [ -e "$TARGET/$rel" ]; then warn "exists, skipped: $rel"; continue; fi
     mkdir -p "$TARGET/.pi/skills/ppg-$g"
     local wu="powerpuff/templates/base/$g/warm-up.md"
-    [ "$g" = misato ] && wu="powerpuff/templates/vibe/misato/warm-up.md"
+    [ "$g" = misato ] && wu="powerpuff/templates/pi/misato/warm-up.md"
     cat > "$TARGET/$rel" <<SKILL
 ---
 name: ppg-$g
@@ -337,6 +350,46 @@ The working dir is \`./kotodute/\`; your handoff is \`kotodute/handoff/$g.koto\`
 SKILL
     record file "$rel"
   done
+  if has_word misato "$GIRLS"; then
+    advisors="holo motoko"
+  elif has_word lily "$GIRLS"; then
+    advisors="motoko"
+  fi
+  if [ -n "$advisors" ]; then
+    for g in $advisors; do
+      case "$g" in
+        holo)   title="Business strategy advisor" ;;
+        motoko) title="R&D strategy and incident takeover specialist" ;;
+      esac
+      local rel=".pi/skills/ppg-$g/SKILL.md"
+      if [ -e "$TARGET/$rel" ]; then warn "exists, skipped: $rel"; continue; fi
+      mkdir -p "$TARGET/.pi/skills/ppg-$g"
+      if [ "$g" = holo ]; then
+        cat > "$TARGET/$rel" <<SKILL
+---
+name: ppg-$g
+description: Powerpuff $title ($g) - read-only strategic advisor for this project
+---
+You are the $title ($g) in this project's Powerpuff workflow.
+Read \`powerpuff/personas/$g.md\` and follow its instructions.
+You advise only: do not implement or approve product changes.
+Write your decision memo to \`kotodute/advice/$g.md\`.
+SKILL
+      else
+        cat > "$TARGET/$rel" <<SKILL
+---
+name: ppg-motoko
+description: Powerpuff $title (motoko) - advisory analysis or user-approved Lily takeover
+---
+You are Motoko in this project's Powerpuff workflow.
+Read \`powerpuff/personas/motoko.md\` and follow its instructions.
+Under Misato you are advisory-only and write \`kotodute/advice/motoko.md\`.
+Under Lily you may act only after the user invokes \`/motoko-takeover\`; then take over sequentially, solve the frozen task directly, and update Lily's work log and handoff.
+SKILL
+      fi
+      record file "$rel"
+    done
+  fi
   if has_word lily "$GIRLS"; then
     local rel=".pi/skills/ppg-lily/SKILL.md"
     if [ ! -e "$TARGET/$rel" ]; then
@@ -349,11 +402,12 @@ description: Lightweight Magilumiere workflow (Aoi Riri) - plan, execute, check 
 You are 葵 リリー (Aoi Rirī) in this project's lightweight Magilumiere workflow.
 Read `powerpuff/templates/lily/warm-up.md` and follow its instructions.
 The working dir is `./kotodute/lily/`. Arguments may name the stage: plan / exec / check.
+If the task is too large for this lightweight workflow, freeze the task packet, stop with AWAITING_MOTOKO_APPROVAL, and ask the user to run `/motoko-takeover`. Never dispatch Motoko without that command.
 SKILL
       record file "$rel"
     fi
   fi
-  note "pi: skills (/skill:ppg-<girl>)"
+  note "pi: per-role models + orchestration extension (/ppg-run, /motoko-takeover)"
 }
 
 finalize_clean() {
@@ -416,7 +470,7 @@ cmd_detach() {
 # ------------------------------------------------------------- doctor ---
 
 cmd_doctor() {
-  local TARGET="" ok=1 f
+  local TARGET="" ok=1 f harness
   while [ $# -gt 0 ]; do
     case "$1" in
       --target) TARGET=$2; shift 2 ;;
@@ -426,6 +480,7 @@ cmd_doctor() {
   TARGET=${TARGET:-$PWD}
   TARGET=$(cd "$TARGET" && pwd)
   [ -f "$TARGET/kotodute/.ppg-manifest" ] || die "not attached (no manifest)"
+  harness=$(sed -n 's/^meta harness //p' "$TARGET/kotodute/.ppg-manifest")
   sed -n 's/^meta //p' "$TARGET/kotodute/.ppg-manifest"
   echo
   while read -r kind p; do
@@ -442,7 +497,11 @@ cmd_doctor() {
     note "工作區是巢狀 git repo(clean 模式)"
   fi
   echo
-  warn "security test 請手動執行:agent 'git push' 應被擋;bash 寫 scope.md 應被擋;裝套件應跳 ask prompt。"
+  if has_word pi "$harness"; then
+    warn "Pi security test:child 的 git push、bash 寫 scope.md、依賴變更都應被 guard 擋下;依賴需求改寫入 human TODO。"
+  else
+    warn "security test 請手動執行:agent 'git push' 應被擋;bash 寫 scope.md 應被擋;裝套件應跳 ask prompt。"
+  fi
   [ "$ok" = 1 ] && note "doctor: all good" || warn "doctor: issues found"
 }
 

@@ -57,4 +57,10 @@ git diff
 
 ## Risks
 
+## Motoko Takeover
+
+- Required: No
+- Reason:
+- Approved only by: user-invoked `/motoko-takeover`
+
 ## Notes

@@ -15,7 +15,7 @@ attach 後的專案佈局:
 ```
 your-project/
 ├── powerpuff/      # 框架 clone(更新:git -C powerpuff pull,不碰工作區)
-├── kotodute/       # 工作區:scope.md、human-todo.md、handoff/*.koto、runs/、lily/
+├── kotodute/       # 工作區:scope.md、human-todo.md、handoff/*.koto、advice/、runs/、lily/
 └── .claude/ 等     # attach 生成的入口指標(相對路徑指向 powerpuff/)
 ```
 
@@ -31,13 +31,56 @@ your-project/
 
 | Girl | 角色 | 職責 |
 |---|---|---|
-| Misato | Orchestrator | 拆任務、判複雜度、路由、fan-out/合併(Vibe-native,經 `task` tool 派遣其他角色) |
+| Misato | Orchestrator | 拆任務、判複雜度、路由、fan-out/合併(Vibe 經 `task`;Pi 經獨立 child process) |
 | Blossom | Planner | 定義 scope:I/O contract + 驗證項目,精確到能直接寫測試 |
 | Bubbles | Executor | 在 scope 邊界內實作,對驗證項目自測後交棒 |
 | Buttercup | Reviewer | 從 spec 獨立實作測試、執行、回報;只揭發不修補 |
-| Lily | Lightweight | 小修小補的輕量三階段(Plan/Execute/Check)一人包辦 |
+| Lily | Lightweight | 小修小補的輕量三階段;問題過大時停下並請使用者核准 Motoko 接管 |
+| Holo | Business Advisor | 只在重大商業問題被 Misato 叫用;分析價值捕獲、誘因、單位經濟與下檔風險 |
+| Motoko | R&D / Tactical Specialist | 對 Misato 提供研發決策;經使用者核准後可從 Lily 手上接管複雜實戰任務 |
 
-選 Misato 會自動帶入三人組;Misato 的子代理派遣只在 Vibe 內可用。
+選 Misato 會自動帶入三人組。Pi 安裝會另外帶入 Holo / Motoko;選 Lily 也會安裝 Motoko 接管入口。Vibe 經 `task` tool 派遣;Pi 經 project-local extension 啟動隔離的 Pi child process。
+
+## Pi-native 執行
+
+```bash
+./powerpuff/ppg attach --harness pi --girls misato --mode tracked --yes
+pi --approve
+```
+
+在 Pi 內執行:
+
+```text
+/ppg-run <openspec-change-id>
+```
+
+Lily 流程可獨立安裝:
+
+```bash
+./powerpuff/ppg attach --harness pi --girls lily --mode tracked --yes
+pi --approve
+```
+
+在 Pi 以 `/skill:ppg-lily` 啟用 Lily 後交代任務。如果她判定工作已超出輕量範圍,會凍結 `kotodute/lily/task.md`,把 handoff 狀態設為 `AWAITING_MOTOKO_APPROVAL`,然後停止。只有使用者親自輸入以下命令才會啟動 Motoko:
+
+```text
+/motoko-takeover
+```
+
+這個核准只供一次派遣使用,十分鐘後失效。Motoko 啟動後直接偵察、修改與驗證;Lily 不會同時運作。Motoko 只能修改 task packet 列出的 `Allowed Files / Areas`,bash 也只能逐字執行 `Allowed Commands`。
+
+`.pi/extensions/powerpuff.ts` 提供 `powerpuff_dispatch` tool。`/ppg-run` 先把父 session 切到 `.pi/powerpuff.json` 指定的 Misato profile;child 再依各自 profile 啟動。預設是 Misato / Holo / Motoko 使用 GPT-5.6-sol,Holo / Motoko 以 xhigh 做決策或複雜接管;Blossom / Bubbles / Buttercup 使用 Mistral Medium 3.5 high。每個 child 都是新的 `pi --no-session` process,context 隔離,以 Kotodute handoff 或 `kotodute/advice/*.md` 交接。
+
+```text
+Misato    openai-codex/gpt-5.6-sol       high
+Holo      openai-codex/gpt-5.6-sol       xhigh
+Motoko    openai-codex/gpt-5.6-sol       xhigh
+Blossom   mistral/mistral-medium-3.5     high
+Bubbles   mistral/mistral-medium-3.5     high
+Buttercup mistral/mistral-medium-3.5     high
+```
+
+要改模型只需編輯 `.pi/powerpuff.json`;若指定模型不存在或沒有認證,派遣會明確失敗,不會偷偷 fallback。extension 同時在 child 的 `tool_call` 層封鎖 human-only git、依賴變更與 protected paths。Misato 路線中的 Holo / Motoko 仍是唯讀顧問;只有通過 `/motoko-takeover` 一次性許可的 Lily 路線會讓 Motoko 直接實作,且受到凍結 task packet 的檔案與命令白名單約束。
 
 ## 安裝模式
 
@@ -47,7 +90,7 @@ your-project/
 ## 信任模型(摘要)
 
 - **操作三檔位**:`allow` 正常工作;`ask` 中風險(harness 跳提示,人類按鍵即核可,不可偽造);`deny` 高風險不可逆(agent 永遠不能執行,寫入 `human-todo.md` 由人類親自跑)。
-- **enforcement 不靠 prompt**:Claude Code 走 settings permissions + PreToolUse guard hook;Vibe 走 per-role TOML 白名單。憑證隔離(push key / 簽章 key 不進 agent 環境)是 deny 檔的真正錨點。
+- **enforcement 不靠 prompt**:Claude Code 走 settings permissions + PreToolUse guard hook;Vibe 走 per-role TOML 白名單;Pi child 走 tool allowlist + extension guard。憑證隔離(push key / 簽章 key 不進 agent 環境)是 deny 檔的真正錨點。
 - **handoff 用 [Kotodute](templates/common/kotodute.md)**(專案內的工作區因此命名為 `kotodute/`):機器優先的 S-expression 格式,強制區分 facts/assumptions/open/blockers,事實附 evidence,可用 `koto-check.py` 機械驗證。
 - 詳見 [docs/trust-model.md](docs/trust-model.md)。
 
@@ -60,13 +103,14 @@ templates/
   enforcement/       # settings.json(三檔位)、powerpuff-guard.sh(bash 側門封鎖)
   base/              # Blossom / Bubbles / Buttercup warm-up + handoff.koto
   vibe/              # Misato + .vibe agents/prompts(TOML 白名單)
+  pi/                # Pi per-role model config、orchestration extension + Misato warm-up
   lily/              # 輕量工作流
   commands/claude/   # slash command 薄指標(OpenCode 以 symlink 共用)
 docs/                # 架構與信任模型說明
 legacy/              # 原始三份 setup 文件(完整論述保留於此)
-personas/            # Holo / Motoko 思考夥伴 persona(與 workflow 無關)
+personas/            # Holo / Motoko persona(Motoko 另支援 user-approved Lily takeover)
 ```
 
 ## 首次安裝後
 
-跑一次 security test(`ppg doctor` 會提醒):要求 agent `git push` → 應被擋;要求 agent 用 bash 改 `kotodute/scope.md` → 應被擋;要求裝套件 → 應跳 ask 提示而非直接執行。
+跑一次 security test(`ppg doctor` 會依 harness 提醒):要求 agent `git push` → 應被擋;要求 agent 用 bash 改 `kotodute/scope.md` → 應被擋。互動式 harness 的依賴變更應跳 ask;Pi child-process 模式則阻擋並要求寫入 human TODO。

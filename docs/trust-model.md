@@ -5,7 +5,7 @@
 任何「同一個 user 能改回來的設定」都只是君子協定。各層強度由弱到強:
 
 1. **Prompt 層**(warm-up 的 You Must Not)——擋誠實的指令漂移,這是大宗,但對越界行為無強制力。
-2. **Harness 層**——Claude Code 的 settings permissions + PreToolUse hook;Vibe 的 per-role TOML `enabled_tools` 白名單。攔截發生在模型取得執行能力之前,模型無法跳過;但規則是字串比對,有被變形寫法繞過的空間(guard hook 封掉 bash 側門是為此)。settings 與 hook 自身都在 deny 清單內,防 agent 改規則自我解鎖。
+2. **Harness 層**——Claude Code 的 settings permissions + PreToolUse hook;Vibe 的 per-role TOML `enabled_tools` 白名單;Pi 的 child-process tool allowlist + project extension `tool_call` guard。攔截發生在模型取得執行能力之前,模型無法跳過;但命令規則仍包含字串比對,有被變形寫法繞過的空間(settings、hook、extension 自身都在 protected paths,防 agent 改規則自我解鎖)。
 3. **OS / container 層**——唯讀掛載、斷網、(必要時)獨立 user。無人看管的 fan-out 建議在 container 內跑。
 4. **環境外錨點**——憑證隔離(push key / 簽章 key 走 1Password SSH agent 或 YubiKey touch,agent 觸發時人類會看到授權請求)、遠端 branch protection、巢狀工作區 repo(kotodute/)的 git 歷史。
 
@@ -24,6 +24,10 @@ ask 清單保持短而具體,否則會養成反射性按 y 的習慣,ask 就退�
 ## 角色獨立性
 
 失效模式錯開:Blossom 訂標準(I/O contract + 驗證項目,寫到能直接出測試),Bubbles 作答並自測,Buttercup 拿同一份標準獨立實作測試來評分。Buttercup 不是自己出題自己改——題目來自 Blossom;防漏的關鍵在 **spec 的完整性**,不在誰把測試打進程式碼。驗收標準盡量寫成可機械執行的測試,pass/fail 由測試決定,不由任何人的判斷決定。
+
+Misato 路線中的 Holo / Motoko 是 advisory lens,不在 approval chain。Pi child guard 只允許它們讀專案並寫各自的 `kotodute/advice/*.md`;它們不能改 OpenSpec、產品檔案或 reviewer 結論。顧問建議若會改變需求或架構,Misato 必須停下來交由人類拍板。
+
+Lily → Motoko 是另一種明確授權的 sequential takeover。Lily 只能提出請求並停止,不能自行派遣;使用者必須親自呼叫 `/motoko-takeover`。extension 產生單次、限時、記憶體內 token,派遣開始前即消耗,所以不能重放或平行啟動。接管後 Motoko 的 write/edit 僅限凍結 task packet 的 allowed areas,bash 僅接受其中逐字列出的單一命令;全域 deny 與 protected paths 仍優先。
 
 ## Handoff:Kotodute
 

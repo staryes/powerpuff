@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "roles": {
+    "misato": {
+      "model": "openai-codex/gpt-5.6-sol",
+      "thinking": "high"
+    },
+    "holo": {
+      "model": "openai-codex/gpt-5.6-sol",
+      "thinking": "xhigh"
+    },
+    "motoko": {
+      "model": "openai-codex/gpt-5.6-sol",
+      "thinking": "xhigh"
+    },
+    "blossom": {
+      "model": "mistral/mistral-medium-3.5",
+      "thinking": "high"
+    },
+    "bubbles": {
+      "model": "mistral/mistral-medium-3.5",
+      "thinking": "high"
+    },
+    "buttercup": {
+      "model": "mistral/mistral-medium-3.5",
+      "thinking": "high"
+    }
+  }
+}

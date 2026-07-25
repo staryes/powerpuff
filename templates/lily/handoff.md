@@ -8,6 +8,8 @@
 
 ## Status
 
+<!-- Use AWAITING_MOTOKO_APPROVAL only after the task packet is frozen and Lily has stopped. -->
+
 ## Files Changed
 
 ## Checks
